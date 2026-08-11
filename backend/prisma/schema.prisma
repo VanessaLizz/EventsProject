@@ -26,10 +26,19 @@ model User {
 }
 
 // ======================================================
-// CATÁLOGOS GLOBAIS REUTILIZÁVEIS
+// CATEGORIAS GLOBAIS DE EVENTOS
+// ======================================================
+//
+// Exemplos:
+// SHOWS E FESTAS
+// CINEMA
+// TEATRO E ESPETACULOS
+// LITERATURA | LANCAMENTOS
+//
+// Novas opções poderão ser criadas posteriormente.
+// normalizedName impede duplicidades.
 // ======================================================
 
-// SHOW, CINEMA, TEATRO, LITERATURA, WORKSHOP...
 model EventCategoryTemplate {
   id             String  @id @default(uuid())
   name           String
@@ -42,7 +51,19 @@ model EventCategoryTemplate {
   events Event[]
 }
 
-// PISTA, CAMAROTE, PLATEIA, LOUNGE VIP...
+// ======================================================
+// SETORES GLOBAIS
+// ======================================================
+//
+// Exemplos:
+// PISTA
+// CAMAROTE
+// CADEIRA SUPERIOR
+// LOUNGE VIP
+//
+// São templates globais reutilizáveis.
+// ======================================================
+
 model SectorTemplate {
   id             String  @id @default(uuid())
   name           String
@@ -55,7 +76,20 @@ model SectorTemplate {
   eventSectors EventSector[]
 }
 
-// NORMAL, OPEN BAR, OPEN BAR + FOOD...
+// ======================================================
+// MODALIDADES GLOBAIS
+// ======================================================
+//
+// Exemplos:
+// NORMAL
+// OPEN BAR
+// OPEN FOOD
+// OPEN BAR + FOOD
+// AUTOGRAFO + LIVRO
+//
+// São independentes dos setores.
+// ======================================================
+
 model ModalityTemplate {
   id             String  @id @default(uuid())
   name           String
@@ -68,17 +102,67 @@ model ModalityTemplate {
   eventModalities EventSectorModality[]
 }
 
-// INTEIRA, MEIA, MEIA SOCIAL, VALOR ÚNICO...
+// ======================================================
+// GRUPOS DE COTA
+// ======================================================
+//
+// Permitem aplicar a mesma limitação percentual a várias
+// categorias de preço.
+//
+// Exemplo:
+//
+// MEIA ENTRADA
+// maxPercentage = 50
+//
+// ├── MEIA
+// └── MEIA SOCIAL
+//
+// A soma das duas não poderá ultrapassar 50%.
+// ======================================================
+
+model PriceQuotaGroup {
+  id             String  @id @default(uuid())
+  name           String
+  normalizedName String  @unique
+  maxPercentage  Int
+  isActive       Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  priceCategories PriceCategoryTemplate[]
+}
+
+// ======================================================
+// CATEGORIAS GLOBAIS DE PREÇO
+// ======================================================
+//
+// Exemplos:
+// INTEIRA
+// MEIA
+// MEIA SOCIAL
+// VALOR UNICO
+//
+// Não possuem estoque próprio.
+// O estoque pertence à modalidade e aos lotes.
+// ======================================================
+
 model PriceCategoryTemplate {
   id             String  @id @default(uuid())
   name           String
   normalizedName String  @unique
   isActive       Boolean @default(true)
 
+  quotaGroupId String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  quotaGroup PriceQuotaGroup? @relation(fields: [quotaGroupId], references: [id])
+
   ticketCategories EventTicketCategory[]
+
+  @@index([quotaGroupId])
 }
 
 // ======================================================
@@ -91,19 +175,21 @@ model Event {
   description String?
 
   // LOCAL, TICKETMASTER ou TMDB
-  source     String  @default("LOCAL")
+  source String @default("LOCAL")
+
   externalId String?
   imageUrl   String?
 
-  // Capacidade máxima absoluta do evento
+  // Capacidade física máxima absoluta do evento.
   capacity Int
 
-  // Localização estruturada
+  // Localização estruturada.
   venueName String?
   address   String?
   city      String
   state     String?
   country   String  @default("BR")
+
   latitude  Float?
   longitude Float?
 
@@ -122,10 +208,28 @@ model Event {
   categoryTemplate EventCategoryTemplate @relation(fields: [categoryTemplateId], references: [id])
 
   sectors EventSector[]
+
+  @@index([organizerId])
+  @@index([categoryTemplateId])
+  @@index([city])
+  @@index([dateTime])
+  @@index([source])
 }
 
 // ======================================================
-// SETORES CONFIGURADOS EM CADA EVENTO
+// SETORES CONFIGURADOS NO EVENTO
+// ======================================================
+//
+// O template é global, mas capacidade e configuração
+// pertencem especificamente ao evento.
+//
+// Exemplo:
+//
+// Evento A
+// PISTA = 800
+//
+// Evento B
+// PISTA = 1500
 // ======================================================
 
 model EventSector {
@@ -134,7 +238,6 @@ model EventSector {
   eventId          String
   sectorTemplateId String
 
-  // Capacidade máxima deste setor dentro do evento
   capacity Int
 
   createdAt DateTime @default(now())
@@ -144,15 +247,28 @@ model EventSector {
   sectorTemplate SectorTemplate @relation(fields: [sectorTemplateId], references: [id])
 
   modalities EventSectorModality[]
-  seats      Seat[]
 
-  // O mesmo setor global não pode ser incluído duas vezes
-  // no mesmo evento.
   @@unique([eventId, sectorTemplateId])
+  @@index([eventId])
+  @@index([sectorTemplateId])
 }
 
 // ======================================================
 // MODALIDADES DENTRO DO SETOR
+// ======================================================
+//
+// Exemplo:
+//
+// CAMAROTE
+// ├── NORMAL
+// ├── OPEN BAR
+// ├── OPEN FOOD
+// └── OPEN BAR + FOOD
+//
+// occupancyMode:
+//
+// SEAT     = lugares marcados
+// QUANTITY = controle somente por quantidade
 // ======================================================
 
 model EventSectorModality {
@@ -161,10 +277,7 @@ model EventSectorModality {
   eventSectorId      String
   modalityTemplateId String
 
-  // Quantidade máxima destinada a esta modalidade.
-  capacity Int
-
-  // SEAT ou QUANTITY
+  capacity      Int
   occupancyMode String @default("QUANTITY")
 
   createdAt DateTime @default(now())
@@ -174,12 +287,30 @@ model EventSectorModality {
   modalityTemplate ModalityTemplate @relation(fields: [modalityTemplateId], references: [id])
 
   ticketCategories EventTicketCategory[]
+  batches          TicketBatch[]
+  seats            Seat[]
 
   @@unique([eventSectorId, modalityTemplateId])
+  @@index([eventSectorId])
+  @@index([modalityTemplateId])
 }
 
 // ======================================================
-// CATEGORIAS COMERCIAIS DE INGRESSO
+// CATEGORIAS COMERCIAIS DISPONÍVEIS NA MODALIDADE
+// ======================================================
+//
+// Exemplo:
+//
+// PISTA / NORMAL
+//
+// ├── INTEIRA
+// ├── MEIA
+// └── MEIA SOCIAL
+//
+// Não existe quantidade individual aqui.
+//
+// INTEIRA, MEIA e MEIA SOCIAL compartilham o estoque
+// físico da modalidade/lote.
 // ======================================================
 
 model EventTicketCategory {
@@ -188,68 +319,126 @@ model EventTicketCategory {
   eventSectorModalityId   String
   priceCategoryTemplateId String
 
-  // Cota máxima desta categoria:
-  // INTEIRA, MEIA, MEIA SOCIAL etc.
-  quantity Int
-
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   eventSectorModality   EventSectorModality   @relation(fields: [eventSectorModalityId], references: [id], onDelete: Cascade)
   priceCategoryTemplate PriceCategoryTemplate @relation(fields: [priceCategoryTemplateId], references: [id])
 
-  batches TicketBatch[]
-  tickets Ticket[]
+  batchPrices TicketBatchPrice[]
 
   @@unique([eventSectorModalityId, priceCategoryTemplateId])
+  @@index([eventSectorModalityId])
+  @@index([priceCategoryTemplateId])
 }
 
 // ======================================================
 // LOTES
 // ======================================================
+//
+// O lote possui estoque compartilhado.
+//
+// Exemplo:
+//
+// PISTA = 800
+//
+// LOTE 1 = 400
+// LOTE 2 = 400
+//
+// Dentro de cada lote existirão preços diferentes para
+// INTEIRA, MEIA e MEIA SOCIAL.
+//
+// A progressão poderá ocorrer independentemente conforme
+// os limites proporcionais de cada grupo.
+// ======================================================
 
 model TicketBatch {
   id String @id @default(uuid())
 
-  eventTicketCategoryId String
+  eventSectorModalityId String
 
-  // Ex.: LOTE 1, LOTE 2, PRÉ-VENDA
   name           String
   normalizedName String
 
-  // Define a ordem em que os lotes serão disponibilizados.
   sequence Int
-
-  // Limite deste lote.
   quantity Int
-
-  // Valores monetários são armazenados em centavos.
-  // Ex.: R$ 150,00 = 15000
-  priceInCents Int
 
   isActive Boolean @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  eventSectorModality EventSectorModality @relation(fields: [eventSectorModalityId], references: [id], onDelete: Cascade)
+
+  prices TicketBatchPrice[]
+
+  @@unique([eventSectorModalityId, normalizedName])
+  @@unique([eventSectorModalityId, sequence])
+  @@index([eventSectorModalityId])
+}
+
+// ======================================================
+// PREÇOS POR CATEGORIA DENTRO DO LOTE
+// ======================================================
+//
+// Exemplo:
+//
+// LOTE 1
+//
+// INTEIRA      R$ 220
+// MEIA         R$ 110
+// MEIA SOCIAL  R$ 140
+//
+// Todos compartilham a quantidade do mesmo lote.
+// ======================================================
+
+model TicketBatchPrice {
+  id String @id @default(uuid())
+
+  ticketBatchId         String
+  eventTicketCategoryId String
+
+  // Valores monetários sempre em centavos.
+  // R$ 220,00 = 22000
+  priceInCents Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ticketBatch         TicketBatch         @relation(fields: [ticketBatchId], references: [id], onDelete: Cascade)
   eventTicketCategory EventTicketCategory @relation(fields: [eventTicketCategoryId], references: [id], onDelete: Cascade)
 
   tickets Ticket[]
 
-  @@unique([eventTicketCategoryId, normalizedName])
-  @@unique([eventTicketCategoryId, sequence])
+  @@unique([ticketBatchId, eventTicketCategoryId])
+  @@index([ticketBatchId])
+  @@index([eventTicketCategoryId])
 }
 
 // ======================================================
 // ASSENTOS
 // ======================================================
+//
+// O assento pertence à MODALIDADE, e não somente ao setor.
+//
+// Isso impede, por exemplo, que:
+//
+// CAMAROTE NORMAL
+//
+// e
+//
+// CAMAROTE OPEN BAR
+//
+// utilizem acidentalmente o mesmo A1.
+//
+// Apenas modalidades SEAT terão registros aqui.
+// ======================================================
 
 model Seat {
   id String @id @default(uuid())
 
-  eventSectorId String
+  eventSectorModalityId String
 
-  // Ex.: A1, A2, B15
   label           String
   normalizedLabel String
 
@@ -258,11 +447,12 @@ model Seat {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  eventSector EventSector @relation(fields: [eventSectorId], references: [id], onDelete: Cascade)
+  eventSectorModality EventSectorModality @relation(fields: [eventSectorModalityId], references: [id], onDelete: Cascade)
 
   tickets Ticket[]
 
-  @@unique([eventSectorId, normalizedLabel])
+  @@unique([eventSectorModalityId, normalizedLabel])
+  @@index([eventSectorModalityId])
 }
 
 // ======================================================
@@ -277,10 +467,10 @@ model Order {
   // APPROVED, REFUSED, CANCELLED
   status String @default("APPROVED")
 
-  // Valores sempre armazenados em centavos.
+  // Valores sempre em centavos.
   subtotalInCents Int
 
-  // 12% = 1200 basis points.
+  // 1200 basis points = 12%.
   serviceFeeRateBps Int @default(1200)
 
   serviceFeeInCents Int
@@ -292,6 +482,8 @@ model Order {
   client User @relation(fields: [clientId], references: [id])
 
   tickets Ticket[]
+
+  @@index([clientId])
 }
 
 // ======================================================
@@ -301,15 +493,14 @@ model Order {
 model Ticket {
   id String @id @default(uuid())
 
-  orderId               String
-  eventTicketCategoryId String
-  ticketBatchId         String
+  orderId            String
+  ticketBatchPriceId String
 
-  // Opcional porque pista, pacotes e outros formatos
-  // não necessariamente possuem lugar marcado.
+  // Opcional para PISTA, eventos por quantidade,
+  // pacotes etc.
   seatId String?
 
-  // Guarda historicamente o preço realmente pago.
+  // Guarda historicamente o preço efetivamente pago.
   unitPriceInCents Int
 
   qrCodeHash String @unique
@@ -322,8 +513,11 @@ model Ticket {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  order               Order               @relation(fields: [orderId], references: [id])
-  eventTicketCategory EventTicketCategory @relation(fields: [eventTicketCategoryId], references: [id])
-  ticketBatch         TicketBatch         @relation(fields: [ticketBatchId], references: [id])
-  seat                Seat?               @relation(fields: [seatId], references: [id])
+  order            Order            @relation(fields: [orderId], references: [id])
+  ticketBatchPrice TicketBatchPrice @relation(fields: [ticketBatchPriceId], references: [id])
+  seat             Seat?            @relation(fields: [seatId], references: [id])
+
+  @@index([orderId])
+  @@index([ticketBatchPriceId])
+  @@index([seatId])
 }

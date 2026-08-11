@@ -1,4 +1,5 @@
 import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 import prisma from "../lib/prisma.js";
 
 export async function register(req, res) {
@@ -59,6 +60,71 @@ export async function register(req, res) {
         });
     } catch (error) {
         console.error("Erro ao cadastrar usuário:", error);
+
+        return res.status(500).json({
+            message: "Erro interno do servidor.",
+        });
+    }
+}
+
+export async function login(req, res) {
+    try {
+        const { email, password } = req.body;
+
+        if (!email || !password) {
+            return res.status(400).json({
+                message: "E-mail e senha são obrigatórios.",
+            });
+        }
+
+        const normalizedEmail = email.trim().toLowerCase();
+
+        const user = await prisma.user.findUnique({
+            where: {
+                email: normalizedEmail,
+            },
+        });
+
+        if (!user) {
+            return res.status(401).json({
+                message: "E-mail ou senha inválidos.",
+            });
+        }
+
+        const passwordIsValid = await bcrypt.compare(
+            password,
+            user.passwordHash
+        );
+
+        if (!passwordIsValid) {
+            return res.status(401).json({
+                message: "E-mail ou senha inválidos.",
+            });
+        }
+
+        const token = jwt.sign(
+            {
+                id: user.id,
+                role: user.role,
+            },
+            process.env.JWT_SECRET,
+            {
+                expiresIn: process.env.JWT_EXPIRES_IN || "1d",
+            }
+        );
+
+        return res.status(200).json({
+            message: "Login realizado com sucesso.",
+            token,
+            user: {
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                role: user.role,
+            },
+        });
+    } catch (error) {
+        console.error("Erro ao realizar login:", error);
 
         return res.status(500).json({
             message: "Erro interno do servidor.",

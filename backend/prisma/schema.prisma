@@ -7,65 +7,323 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ======================================================
+// USUÁRIOS
+// ======================================================
+
 model User {
-  id           String   @id @default(uuid())
+  id           String @id @default(uuid())
   name         String
-  email        String   @unique
+  email        String @unique
   passwordHash String
-  role         String   @default("CLIENT") // ORGANIZER, CLIENT, CHECKIN
-  createdAt    DateTime @default(now())
+  role         String @default("CLIENT") // ORGANIZER, CLIENT, CHECKIN
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   events Event[]
   orders Order[]
 }
 
-model Event {
-  id          String   @id @default(uuid())
-  title       String
-  description String
-  category    String // Cinema, Show, Comédia, Workshop
-  location    String
-  dateTime    DateTime
-  externalId  String? // ID do TMDb ou Ticketmaster
-  ticketType  String   @default("GA") // SEATED ou GA
-  organizerId String
-  createdAt   DateTime @default(now())
+// ======================================================
+// CATÁLOGOS GLOBAIS REUTILIZÁVEIS
+// ======================================================
 
-  organizer User   @relation(fields: [organizerId], references: [id])
-  seats     Seat[]
+// SHOW, CINEMA, TEATRO, LITERATURA, WORKSHOP...
+model EventCategoryTemplate {
+  id             String  @id @default(uuid())
+  name           String
+  normalizedName String  @unique
+  isActive       Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  events Event[]
 }
+
+// PISTA, CAMAROTE, PLATEIA, LOUNGE VIP...
+model SectorTemplate {
+  id             String  @id @default(uuid())
+  name           String
+  normalizedName String  @unique
+  isActive       Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  eventSectors EventSector[]
+}
+
+// NORMAL, OPEN BAR, OPEN BAR + FOOD...
+model ModalityTemplate {
+  id             String  @id @default(uuid())
+  name           String
+  normalizedName String  @unique
+  isActive       Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  eventModalities EventSectorModality[]
+}
+
+// INTEIRA, MEIA, MEIA SOCIAL, VALOR ÚNICO...
+model PriceCategoryTemplate {
+  id             String  @id @default(uuid())
+  name           String
+  normalizedName String  @unique
+  isActive       Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ticketCategories EventTicketCategory[]
+}
+
+// ======================================================
+// EVENTOS
+// ======================================================
+
+model Event {
+  id          String  @id @default(uuid())
+  title       String
+  description String?
+
+  // LOCAL, TICKETMASTER ou TMDB
+  source     String  @default("LOCAL")
+  externalId String?
+  imageUrl   String?
+
+  // Capacidade máxima absoluta do evento
+  capacity Int
+
+  // Localização estruturada
+  venueName String?
+  address   String?
+  city      String
+  state     String?
+  country   String  @default("BR")
+  latitude  Float?
+  longitude Float?
+
+  dateTime DateTime
+
+  // DRAFT, PUBLISHED, CANCELLED
+  status String @default("DRAFT")
+
+  organizerId        String
+  categoryTemplateId String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organizer        User                  @relation(fields: [organizerId], references: [id])
+  categoryTemplate EventCategoryTemplate @relation(fields: [categoryTemplateId], references: [id])
+
+  sectors EventSector[]
+}
+
+// ======================================================
+// SETORES CONFIGURADOS EM CADA EVENTO
+// ======================================================
+
+model EventSector {
+  id String @id @default(uuid())
+
+  eventId          String
+  sectorTemplateId String
+
+  // Capacidade máxima deste setor dentro do evento
+  capacity Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  event          Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  sectorTemplate SectorTemplate @relation(fields: [sectorTemplateId], references: [id])
+
+  modalities EventSectorModality[]
+  seats      Seat[]
+
+  // O mesmo setor global não pode ser incluído duas vezes
+  // no mesmo evento.
+  @@unique([eventId, sectorTemplateId])
+}
+
+// ======================================================
+// MODALIDADES DENTRO DO SETOR
+// ======================================================
+
+model EventSectorModality {
+  id String @id @default(uuid())
+
+  eventSectorId      String
+  modalityTemplateId String
+
+  // Quantidade máxima destinada a esta modalidade.
+  capacity Int
+
+  // SEAT ou QUANTITY
+  occupancyMode String @default("QUANTITY")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  eventSector      EventSector      @relation(fields: [eventSectorId], references: [id], onDelete: Cascade)
+  modalityTemplate ModalityTemplate @relation(fields: [modalityTemplateId], references: [id])
+
+  ticketCategories EventTicketCategory[]
+
+  @@unique([eventSectorId, modalityTemplateId])
+}
+
+// ======================================================
+// CATEGORIAS COMERCIAIS DE INGRESSO
+// ======================================================
+
+model EventTicketCategory {
+  id String @id @default(uuid())
+
+  eventSectorModalityId   String
+  priceCategoryTemplateId String
+
+  // Cota máxima desta categoria:
+  // INTEIRA, MEIA, MEIA SOCIAL etc.
+  quantity Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  eventSectorModality   EventSectorModality   @relation(fields: [eventSectorModalityId], references: [id], onDelete: Cascade)
+  priceCategoryTemplate PriceCategoryTemplate @relation(fields: [priceCategoryTemplateId], references: [id])
+
+  batches TicketBatch[]
+  tickets Ticket[]
+
+  @@unique([eventSectorModalityId, priceCategoryTemplateId])
+}
+
+// ======================================================
+// LOTES
+// ======================================================
+
+model TicketBatch {
+  id String @id @default(uuid())
+
+  eventTicketCategoryId String
+
+  // Ex.: LOTE 1, LOTE 2, PRÉ-VENDA
+  name           String
+  normalizedName String
+
+  // Define a ordem em que os lotes serão disponibilizados.
+  sequence Int
+
+  // Limite deste lote.
+  quantity Int
+
+  // Valores monetários são armazenados em centavos.
+  // Ex.: R$ 150,00 = 15000
+  priceInCents Int
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  eventTicketCategory EventTicketCategory @relation(fields: [eventTicketCategoryId], references: [id], onDelete: Cascade)
+
+  tickets Ticket[]
+
+  @@unique([eventTicketCategoryId, normalizedName])
+  @@unique([eventTicketCategoryId, sequence])
+}
+
+// ======================================================
+// ASSENTOS
+// ======================================================
 
 model Seat {
-  id          String  @id @default(uuid())
-  eventId     String
-  label       String // ex: "Poltrona A1" ou "Pista Lote 1"
-  price       Float
+  id String @id @default(uuid())
+
+  eventSectorId String
+
+  // Ex.: A1, A2, B15
+  label           String
+  normalizedLabel String
+
   isAvailable Boolean @default(true)
 
-  event   Event    @relation(fields: [eventId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  eventSector EventSector @relation(fields: [eventSectorId], references: [id], onDelete: Cascade)
+
   tickets Ticket[]
+
+  @@unique([eventSectorId, normalizedLabel])
 }
+
+// ======================================================
+// PEDIDOS
+// ======================================================
 
 model Order {
-  id          String   @id @default(uuid())
-  clientId    String
-  status      String   @default("APPROVED") // APPROVED, REFUSED, CANCELLED
-  totalAmount Float
-  createdAt   DateTime @default(now())
+  id String @id @default(uuid())
 
-  client  User     @relation(fields: [clientId], references: [id])
+  clientId String
+
+  // APPROVED, REFUSED, CANCELLED
+  status String @default("APPROVED")
+
+  // Valores sempre armazenados em centavos.
+  subtotalInCents Int
+
+  // 12% = 1200 basis points.
+  serviceFeeRateBps Int @default(1200)
+
+  serviceFeeInCents Int
+  totalInCents      Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client User @relation(fields: [clientId], references: [id])
+
   tickets Ticket[]
 }
 
-model Ticket {
-  id          String   @id @default(uuid())
-  orderId     String
-  seatId      String
-  qrCodeHash  String   @unique
-  status      String   @default("VALID") // VALID, USED, CANCELLED
-  sharedToken String   @unique @default(uuid())
-  createdAt   DateTime @default(now())
+// ======================================================
+// INGRESSOS
+// ======================================================
 
-  order Order @relation(fields: [orderId], references: [id])
-  seat  Seat  @relation(fields: [seatId], references: [id])
+model Ticket {
+  id String @id @default(uuid())
+
+  orderId               String
+  eventTicketCategoryId String
+  ticketBatchId         String
+
+  // Opcional porque pista, pacotes e outros formatos
+  // não necessariamente possuem lugar marcado.
+  seatId String?
+
+  // Guarda historicamente o preço realmente pago.
+  unitPriceInCents Int
+
+  qrCodeHash String @unique
+
+  // VALID, USED, CANCELLED
+  status String @default("VALID")
+
+  sharedToken String @unique @default(uuid())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  order               Order               @relation(fields: [orderId], references: [id])
+  eventTicketCategory EventTicketCategory @relation(fields: [eventTicketCategoryId], references: [id])
+  ticketBatch         TicketBatch         @relation(fields: [ticketBatchId], references: [id])
+  seat                Seat?               @relation(fields: [seatId], references: [id])
 }

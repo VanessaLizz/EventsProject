@@ -1,0 +1,71 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         String   @default("CLIENT") // ORGANIZER, CLIENT, CHECKIN
+  createdAt    DateTime @default(now())
+
+  events Event[]
+  orders Order[]
+}
+
+model Event {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  category    String // Cinema, Show, Comédia, Workshop
+  location    String
+  dateTime    DateTime
+  externalId  String? // ID do TMDb ou Ticketmaster
+  ticketType  String   @default("GA") // SEATED ou GA
+  organizerId String
+  createdAt   DateTime @default(now())
+
+  organizer User   @relation(fields: [organizerId], references: [id])
+  seats     Seat[]
+}
+
+model Seat {
+  id          String  @id @default(uuid())
+  eventId     String
+  label       String // ex: "Poltrona A1" ou "Pista Lote 1"
+  price       Float
+  isAvailable Boolean @default(true)
+
+  event   Event    @relation(fields: [eventId], references: [id])
+  tickets Ticket[]
+}
+
+model Order {
+  id          String   @id @default(uuid())
+  clientId    String
+  status      String   @default("APPROVED") // APPROVED, REFUSED, CANCELLED
+  totalAmount Float
+  createdAt   DateTime @default(now())
+
+  client  User     @relation(fields: [clientId], references: [id])
+  tickets Ticket[]
+}
+
+model Ticket {
+  id          String   @id @default(uuid())
+  orderId     String
+  seatId      String
+  qrCodeHash  String   @unique
+  status      String   @default("VALID") // VALID, USED, CANCELLED
+  sharedToken String   @unique @default(uuid())
+  createdAt   DateTime @default(now())
+
+  order Order @relation(fields: [orderId], references: [id])
+  seat  Seat  @relation(fields: [seatId], references: [id])
+}

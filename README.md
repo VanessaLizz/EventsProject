@@ -1,4 +1,5 @@
-# EventsProject
+# Boraí
+**Seu próximo rolê a um clique de distância**
 
 Plataforma web para gerenciamento, venda e validação de ingressos para diferentes tipos de eventos, como shows, cinema, teatro, workshops e eventos especiais.
 

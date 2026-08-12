@@ -1,4 +1,4 @@
-import crypto from "crypto";
+import { randomUUID } from "crypto";
 
 import prisma from "../lib/prisma.js";
 
@@ -7,6 +7,11 @@ import {
     releaseSessionSeats,
     validateCheckoutStock,
 } from "../services/checkoutService.js";
+
+import {
+    createTicketQrToken,
+    hashTicketQrToken,
+} from "../services/qrCodeService.js";
 
 const MAX_TICKETS_PER_CHECKOUT = 10;
 const SEAT_HOLD_MINUTES = 10;
@@ -54,7 +59,6 @@ async function releaseExpiredSeatHolds(
                     lte: now,
                 },
             },
-
             include: {
                 items: true,
             },
@@ -131,7 +135,6 @@ export async function startCheckout(
                             id:
                                 item.ticketBatchPriceId,
                         },
-
                         include: {
                             ticketBatch: {
                                 include: {
@@ -139,19 +142,18 @@ export async function startCheckout(
                                         include: {
                                             eventSector: {
                                                 include: {
-                                                    event: true,
+                                                    event:
+                                                        true,
                                                     sectorTemplate:
                                                         true,
                                                 },
                                             },
-
                                             modalityTemplate:
                                                 true,
                                         },
                                     },
                                 },
                             },
-
                             eventTicketCategory: {
                                 include: {
                                     priceCategoryTemplate: {
@@ -313,10 +315,8 @@ export async function startCheckout(
                                 data: {
                                     clientId:
                                         req.user.id,
-
                                     status:
                                         "ACTIVE",
-
                                     expiresAt,
                                 },
                             });
@@ -346,13 +346,10 @@ export async function startCheckout(
                                     data: {
                                         checkoutSessionId:
                                             session.id,
-
                                         ticketBatchPriceId:
                                             data.id,
-
                                         quantity:
                                             request.quantity,
-
                                         seatId:
                                             null,
                                     },
@@ -399,7 +396,6 @@ export async function startCheckout(
                                     .findFirst({
                                         where: {
                                             seatId,
-
                                             status: {
                                                 in: [
                                                     "VALID",
@@ -409,9 +405,7 @@ export async function startCheckout(
                                         },
                                     });
 
-                            if (
-                                soldTicket
-                            ) {
+                            if (soldTicket) {
                                 throw new Error(
                                     "SEAT_UNAVAILABLE"
                                 );
@@ -426,7 +420,6 @@ export async function startCheckout(
                                             isAvailable:
                                                 true,
                                         },
-
                                         data: {
                                             isAvailable:
                                                 false,
@@ -447,12 +440,9 @@ export async function startCheckout(
                                     data: {
                                         checkoutSessionId:
                                             session.id,
-
                                         ticketBatchPriceId:
                                             data.id,
-
                                         seatId,
-
                                         quantity:
                                             1,
                                     },
@@ -466,7 +456,6 @@ export async function startCheckout(
                                 id:
                                     session.id,
                             },
-
                             include: {
                                 items:
                                     true,
@@ -482,19 +471,14 @@ export async function startCheckout(
             checkout: {
                 id:
                     checkoutSession.id,
-
                 status:
                     checkoutSession.status,
-
                 totalTickets:
                     totalRequested,
-
                 maxTickets:
                     MAX_TICKETS_PER_CHECKOUT,
-
                 expiresAt:
                     checkoutSession.expiresAt,
-
                 items:
                     checkoutSession.items,
             },
@@ -554,9 +538,8 @@ export async function completeCheckout(
         const { checkoutId } =
             req.params;
 
-        const {
-            paymentStatus,
-        } = req.body;
+        const { paymentStatus } =
+            req.body;
 
         if (
             ![
@@ -579,11 +562,9 @@ export async function completeCheckout(
                                 where: {
                                     id:
                                         checkoutId,
-
                                     clientId:
                                         req.user.id,
                                 },
-
                                 include: {
                                     items: {
                                         include: {
@@ -603,7 +584,6 @@ export async function completeCheckout(
                                                             },
                                                         },
                                                     },
-
                                                     eventTicketCategory: {
                                                         include: {
                                                             priceCategoryTemplate: {
@@ -616,7 +596,6 @@ export async function completeCheckout(
                                                     },
                                                 },
                                             },
-
                                             seat:
                                                 true,
                                         },
@@ -674,7 +653,6 @@ export async function completeCheckout(
                                     id:
                                         session.id,
                                 },
-
                                 data: {
                                     status:
                                         "CANCELLED",
@@ -687,7 +665,7 @@ export async function completeCheckout(
                     }
 
                     // ==============================
-                    // ESTOQUE REAL
+                    // VALIDAÇÃO REAL DE ESTOQUE
                     // ==============================
 
                     await validateCheckoutStock(
@@ -732,23 +710,18 @@ export async function completeCheckout(
                             data: {
                                 clientId:
                                     req.user.id,
-
                                 status:
                                     "APPROVED",
-
                                 subtotalInCents,
-
                                 serviceFeeRateBps:
                                     SERVICE_FEE_RATE_BPS,
-
                                 serviceFeeInCents,
-
                                 totalInCents,
                             },
                         });
 
                     // ==============================
-                    // INGRESSOS
+                    // INGRESSOS + QR ASSINADO
                     // ==============================
 
                     for (
@@ -761,8 +734,26 @@ export async function completeCheckout(
                             item.quantity;
                             i++
                         ) {
+                            const ticketId =
+                                randomUUID();
+
+                            const qrToken =
+                                createTicketQrToken({
+                                    ticketId,
+                                    orderId:
+                                        order.id,
+                                });
+
+                            const qrCodeHash =
+                                hashTicketQrToken(
+                                    qrToken
+                                );
+
                             await tx.ticket.create({
                                 data: {
+                                    id:
+                                        ticketId,
+
                                     orderId:
                                         order.id,
 
@@ -778,14 +769,7 @@ export async function completeCheckout(
                                             .ticketBatchPrice
                                             .priceInCents,
 
-                                    qrCodeHash:
-                                        crypto
-                                            .randomBytes(
-                                                32
-                                            )
-                                            .toString(
-                                                "hex"
-                                            ),
+                                    qrCodeHash,
                                 },
                             });
                         }
@@ -797,7 +781,6 @@ export async function completeCheckout(
                                 id:
                                     session.id,
                             },
-
                             data: {
                                 status:
                                     "COMPLETED",
@@ -805,7 +788,8 @@ export async function completeCheckout(
                         });
 
                     return {
-                        refused: false,
+                        refused:
+                            false,
 
                         orderId:
                             order.id,

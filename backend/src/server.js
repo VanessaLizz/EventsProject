@@ -5,6 +5,8 @@ import cors from "cors";
 
 import authRoutes from "./routes/authRoutes.js";
 import checkoutRoutes from "./routes/checkoutRoutes.js";
+import ticketRoutes from "./routes/ticketRoutes.js";
+import checkinRoutes from "./routes/checkinRoutes.js";
 
 const app = express();
 
@@ -13,6 +15,8 @@ app.use(express.json());
 
 app.use("/auth", authRoutes);
 app.use("/checkout", checkoutRoutes);
+app.use("/tickets", ticketRoutes);
+app.use("/checkin", checkinRoutes);
 
 app.get("/", (req, res) => {
     return res.json({
@@ -20,7 +24,8 @@ app.get("/", (req, res) => {
     });
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT =
+    process.env.PORT || 3000;
 
 app.listen(PORT, () => {
     console.log(

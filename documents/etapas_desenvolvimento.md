@@ -735,4 +735,3796 @@ A modelagem ficou preparada para:
 * **Geração e Refatoração de Código:** auxílio na construção e revisão do `schema.prisma`, migrations e `seed.js`.
 * **Resolução de Problemas:** diagnóstico de erros de sintaxe do Prisma, incompatibilidades de relações e ajustes das migrations.
 * **Testes:** auxílio na criação de consultas para inspeção e validação dos dados persistidos.
-* **Decisões Humanas / Manuais:** definição das regras de negócio para capacidade, setores, modalidades, categorias, meia-entrada, meia social, lotes, progressão proporcional, taxa de serviço e escolha dos eventos de demonstração.
+- **Decisões Humanas / Manuais:** definição das regras de negócio para capacidade, setores, modalidades, categorias de preço, meia-entrada, meia social, lotes, progressão proporcional, taxa de serviço e escolha dos eventos de demonstração; execução e validação manual dos testes do schema, migrations, seeds, reexecução sem duplicidade, capacidades, lotes, preços compartilhados e grupo de cota `MEIA ENTRADA`.
+
+---
+
+# [Etapa 4] Reservas, Checkout, Pagamento Simulado e QR Code
+
+**Status:** Concluído
+
+## Objetivo da Etapa
+
+Implementar o fluxo completo entre a seleção de ingressos e a utilização do ingresso no evento, contemplando:
+
+- início de checkout;
+- controle de quantidade máxima por compra;
+- tratamento diferente para ingressos por quantidade e por assento;
+- reserva temporária de assentos;
+- expiração de reservas;
+- concorrência entre compradores;
+- validação de estoque;
+- capacidades hierárquicas;
+- controle de lotes;
+- controle conjunto de cotas;
+- pagamento simulado;
+- taxa de serviço;
+- criação de pedidos;
+- criação de ingressos;
+- QR Code individual;
+- compartilhamento público seguro;
+- validação do ingresso pela Portaria;
+- proteção contra reutilização do QR Code;
+- autorização por perfil.
+
+A implementação foi construída sobre a modelagem flexível desenvolvida na Etapa 3.
+
+---
+
+# 1. Regras de negócio definidas para o checkout
+
+Antes da implementação foram definidas regras diferentes de acordo com o modo de ocupação da modalidade.
+
+Foram utilizados dois modos:
+
+```text
+QUANTITY
+SEAT
+```
+
+Esses modos possuem comportamentos diferentes durante o checkout.
+
+---
+
+# 2. Modalidade `QUANTITY`
+
+`QUANTITY` representa modalidades nas quais o comprador escolhe uma quantidade de ingressos, mas não escolhe lugares específicos.
+
+Exemplos utilizados nos eventos de demonstração:
+
+- Pista;
+- Entrada Geral;
+- modalidades sem assento numerado.
+
+## Regra de reserva
+
+Foi decidido que iniciar um checkout `QUANTITY` **não reserva nem bloqueia estoque**.
+
+Isso significa que vários clientes podem iniciar simultaneamente checkouts para os mesmos ingressos.
+
+Exemplo:
+
+```text
+Restam 10 ingressos.
+
+Cliente A inicia checkout de 10.
+Cliente B inicia checkout de 10.
+
+Os dois checkouts podem ser criados.
+```
+
+A disponibilidade definitiva é verificada somente quando cada usuário tenta finalizar a compra.
+
+O primeiro que concluir com estoque disponível consegue comprar.
+
+O segundo recebe erro de indisponibilidade caso o estoque já tenha acabado.
+
+Portanto:
+
+```text
+QUANTITY
+→ intenção de compra no checkout
+→ não bloqueia estoque
+→ disponibilidade real verificada na conclusão
+```
+
+Essa decisão evita a retenção artificial de grandes quantidades de ingressos por usuários que iniciam checkout e abandonam a compra.
+
+## Expiração
+
+Como `QUANTITY` não bloqueia estoque, a expiração de 10 minutos não é necessária como mecanismo de liberação de inventário.
+
+---
+
+# 3. Modalidade `SEAT`
+
+`SEAT` representa modalidades com lugares individualmente identificados.
+
+Exemplos:
+
+- cinema;
+- teatro;
+- cadeiras numeradas;
+- camarotes configurados com lugares.
+
+Nesse caso, permitir que dois clientes selecionem simultaneamente o mesmo lugar causaria conflito.
+
+Por isso, foi implementado bloqueio temporário.
+
+Fluxo:
+
+```text
+Cliente seleciona assento
+        ↓
+checkout criado
+        ↓
+assento fica indisponível
+        ↓
+prazo máximo de 10 minutos
+        ↓
+pagamento aprovado
+        OU
+expiração/cancelamento
+```
+
+---
+
+# 4. Reserva temporária de assentos
+
+Quando um checkout `SEAT` é iniciado:
+
+- o assento precisa existir;
+- precisa pertencer à modalidade correspondente ao preço selecionado;
+- precisa estar disponível;
+- é associado ao `CheckoutItem`;
+- `Seat.isAvailable` passa para `false`;
+- a sessão recebe `expiresAt`.
+
+O bloqueio é temporário enquanto a compra não é concluída.
+
+---
+
+# 5. Prazo de 10 minutos
+
+Foi definido:
+
+```text
+10 minutos
+```
+
+como tempo máximo da reserva de assentos.
+
+Todos os assentos pertencentes à mesma sessão compartilham o mesmo prazo.
+
+Exemplo:
+
+```text
+Checkout criado às 14:18
+
+expiresAt:
+14:28
+```
+
+O prazo pertence à sessão de checkout e não individualmente a cada assento.
+
+---
+
+# 6. Comportamento após expiração
+
+Quando uma sessão com assentos ultrapassa `expiresAt`:
+
+```text
+ACTIVE
+→ EXPIRED
+```
+
+Os assentos temporariamente associados àquela sessão são liberados novamente, desde que não exista ingresso definitivo válido ou utilizado associado a eles.
+
+Assim:
+
+```text
+isAvailable = true
+```
+
+e outro cliente pode selecionar os lugares.
+
+---
+
+# 7. Estado interno da reserva não exposto ao usuário
+
+Foi decidido que o Front-End não precisa diferenciar:
+
+```text
+assento vendido
+```
+
+de:
+
+```text
+assento temporariamente reservado por outro usuário
+```
+
+Para o comprador, ambos aparecem simplesmente como:
+
+```text
+indisponível
+```
+
+Essa distinção permanece como regra interna do backend.
+
+Quando uma reserva expira, o assento volta a aparecer como disponível.
+
+---
+
+# 8. Estrutura de `Seat`
+
+A entidade `Seat` utilizada na Etapa 4 possui:
+
+```text
+id
+eventSectorModalityId
+label
+normalizedLabel
+isAvailable
+createdAt
+updatedAt
+```
+
+Relacionamentos:
+
+```text
+EventSectorModality
+Ticket[]
+CheckoutItem[]
+```
+
+Foi mantida a restrição:
+
+```text
+@@unique([eventSectorModalityId, normalizedLabel])
+```
+
+impedindo duplicidade do mesmo identificador de assento dentro da mesma modalidade.
+
+Também foi mantido índice por:
+
+```text
+eventSectorModalityId
+```
+
+---
+
+# 9. Significado de `Seat.isAvailable`
+
+Foi mantida a propriedade:
+
+```text
+isAvailable
+```
+
+como representação operacional da disponibilidade do assento.
+
+Durante a Etapa 4 ela passou a atender tanto:
+
+- indisponibilidade temporária durante checkout;
+- indisponibilidade definitiva após venda.
+
+A liberação após expiração verifica a existência de Ticket antes de tornar o assento disponível novamente.
+
+---
+
+# 10. Criação de `CheckoutSession`
+
+Foi adicionada a entidade:
+
+```text
+CheckoutSession
+```
+
+com os campos:
+
+```text
+id
+clientId
+status
+expiresAt
+createdAt
+updatedAt
+```
+
+Relacionamentos:
+
+```text
+client → User
+items → CheckoutItem[]
+```
+
+Índices:
+
+```text
+clientId
+status
+expiresAt
+```
+
+---
+
+# 11. Estados de `CheckoutSession`
+
+Foram previstos:
+
+```text
+ACTIVE
+COMPLETED
+EXPIRED
+CANCELLED
+```
+
+## `ACTIVE`
+
+Checkout iniciado e ainda utilizável.
+
+## `COMPLETED`
+
+Compra concluída com sucesso.
+
+## `EXPIRED`
+
+Reserva com assentos ultrapassou o tempo permitido.
+
+## `CANCELLED`
+
+Checkout cancelado, incluindo cenário de pagamento recusado.
+
+---
+
+# 12. Campo `expiresAt`
+
+`expiresAt` é opcional:
+
+```text
+DateTime?
+```
+
+A razão é a diferença entre `SEAT` e `QUANTITY`.
+
+Para sessões contendo assentos:
+
+```text
+expiresAt != null
+```
+
+Para `QUANTITY`, não é necessário utilizar expiração como mecanismo de bloqueio de estoque.
+
+---
+
+# 13. Criação de `CheckoutItem`
+
+Foi adicionada a entidade:
+
+```text
+CheckoutItem
+```
+
+com:
+
+```text
+id
+checkoutSessionId
+ticketBatchPriceId
+seatId
+quantity
+createdAt
+updatedAt
+```
+
+Relacionamentos:
+
+```text
+checkoutSession
+ticketBatchPrice
+seat
+```
+
+Índices:
+
+```text
+checkoutSessionId
+ticketBatchPriceId
+seatId
+```
+
+---
+
+# 14. Representação de `QUANTITY` no `CheckoutItem`
+
+Para ingressos por quantidade:
+
+```text
+seatId = null
+quantity >= 1
+```
+
+O registro representa intenção de compra.
+
+Não representa reserva definitiva de estoque.
+
+---
+
+# 15. Representação de `SEAT` no `CheckoutItem`
+
+Para ingressos com assento:
+
+```text
+seatId = ID do assento
+quantity = 1
+```
+
+Cada assento selecionado é representado individualmente.
+
+Isso permite:
+
+- selecionar vários lugares;
+- validar cada assento;
+- bloquear lugares individualmente;
+- relacionar posteriormente cada Ticket ao assento correspondente.
+
+---
+
+# 16. Limite máximo de ingressos por checkout
+
+Foi definida a regra:
+
+```text
+máximo de 10 ingressos por checkout
+```
+
+Esse limite considera o checkout inteiro.
+
+Não é:
+
+```text
+10 por categoria
+```
+
+nem:
+
+```text
+10 por lote
+```
+
+nem:
+
+```text
+10 por setor
+```
+
+É:
+
+```text
+10 ingressos no total da compra
+```
+
+---
+
+# 17. Limite entre categorias
+
+O limite foi testado utilizando categorias diferentes.
+
+Exemplo conceitual:
+
+```text
+5 INTEIRA
++
+5 MEIA
+=
+10
+```
+
+Permitido.
+
+Adicionar mais um ingresso:
+
+```text
+11
+```
+
+é rejeitado.
+
+---
+
+# 18. Limite entre lotes
+
+O limite também foi validado entre preços pertencentes a lotes diferentes.
+
+Portanto, não é possível contornar o limite selecionando ingressos de vários lotes.
+
+---
+
+# 19. Limite em `SEAT`
+
+Para assentos:
+
+```text
+10 assentos
+→ permitido
+
+11 assentos
+→ bloqueado
+```
+
+Cada `CheckoutItem` de assento equivale a um ingresso.
+
+---
+
+# 20. Mensagem para limite excedido
+
+Foi validada a resposta:
+
+```text
+É permitido comprar no máximo 10 ingressos por vez.
+```
+
+---
+
+# 21. Responsabilidade futura do Front-End
+
+Além da validação obrigatória no backend, ficou definido que o Front-End deverá:
+
+- informar visualmente o limite máximo;
+- acompanhar quantos ingressos já foram selecionados;
+- impedir a seleção do 11º ingresso;
+- não depender apenas do erro retornado pela API.
+
+A validação do backend permanece obrigatória por segurança.
+
+---
+
+# 22. Geração automática de assentos no seed
+
+Os seeds foram ampliados para criar assentos para modalidades `SEAT`.
+
+A quantidade criada acompanha:
+
+```text
+EventSectorModality.capacity
+```
+
+Modalidades `QUANTITY` não recebem registros de `Seat`.
+
+---
+
+# 23. Assentos gerados nos eventos de demonstração
+
+Foram validados:
+
+### Teatro — Filhos do Éden: Paraíso Perdido
+
+```text
+PLATEIA
+NORMAL
+SEAT
+capacidade = 300
+assentos = 300
+```
+
+### Epica - Live in Brazil
+
+```text
+PISTA
+NORMAL
+QUANTITY
+capacidade = 800
+assentos = 0
+```
+
+```text
+CAMAROTE
+NORMAL
+SEAT
+capacidade = 50
+assentos = 50
+```
+
+```text
+CAMAROTE
+OPEN BAR
+SEAT
+capacidade = 50
+assentos = 50
+```
+
+```text
+CAMAROTE
+OPEN FOOD
+SEAT
+capacidade = 50
+assentos = 50
+```
+
+```text
+CAMAROTE
+OPEN BAR + FOOD
+SEAT
+capacidade = 50
+assentos = 50
+```
+
+```text
+CADEIRA SUPERIOR
+NORMAL
+SEAT
+capacidade = 500
+assentos = 500
+```
+
+```text
+CADEIRA INFERIOR
+NORMAL
+SEAT
+capacidade = 500
+assentos = 500
+```
+
+### Evento literário
+
+```text
+ENTRADA GERAL
+AUTOGRAFO + LIVRO
+QUANTITY
+capacidade = 150
+assentos = 0
+```
+
+```text
+ENTRADA GERAL
+AUTOGRAFO + FOTO + LIVRO
+QUANTITY
+capacidade = 100
+assentos = 0
+```
+
+### Cinema — Amanhecer - Parte 1 | Relançamento
+
+```text
+SALA DE CINEMA
+NORMAL
+SEAT
+capacidade = 120
+assentos = 120
+```
+
+---
+
+# 24. Total de assentos gerados
+
+Foi confirmada a criação de:
+
+```text
+1620 assentos
+```
+
+distribuídos pelas modalidades `SEAT`.
+
+---
+
+# 25. Identificação dos assentos
+
+No seed atual foram utilizados identificadores como:
+
+```text
+A1
+A2
+A3
+...
+```
+
+O teste no cinema confirmou a existência dos 120 lugares.
+
+A ordenação textual por `normalizedLabel` pode produzir sequência lexical como:
+
+```text
+A1
+A10
+A100
+A101
+...
+```
+
+Essa ordenação observada durante a inspeção não altera a quantidade ou unicidade dos assentos.
+
+---
+
+# 26. Capacidade em eventos criados pelo Organizador
+
+Foi estabelecida uma regra importante para eventos futuros:
+
+**a capacidade não será fixa pelo sistema.**
+
+Quando o `ORGANIZER` criar um novo evento, ele deverá definir a capacidade.
+
+A partir dessa capacidade, o sistema deverá ajustar e validar as configurações inferiores.
+
+Hierarquia:
+
+```text
+EVENTO
+↓
+SETORES
+↓
+MODALIDADES
+↓
+LOTES / ASSENTOS
+```
+
+---
+
+# 27. Regra de capacidade do evento
+
+`Event.capacity` representa a capacidade física máxima absoluta do evento.
+
+As vendas totais não podem ultrapassar esse valor.
+
+---
+
+# 28. Regra de capacidade dos setores
+
+Cada `EventSector` possui capacidade específica.
+
+A configuração dos setores deve respeitar a capacidade total do evento.
+
+O backend também verifica a quantidade vendida no setor durante a finalização.
+
+---
+
+# 29. Regra de capacidade das modalidades
+
+Cada `EventSectorModality` possui sua própria capacidade.
+
+A venda total daquela modalidade não pode ultrapassar:
+
+```text
+EventSectorModality.capacity
+```
+
+---
+
+# 30. Regra de capacidade dos lotes
+
+Cada `TicketBatch` possui:
+
+```text
+quantity
+```
+
+A venda de ingressos daquele lote não pode ultrapassar essa quantidade.
+
+---
+
+# 31. Relação entre capacidade e assentos
+
+Para modalidade:
+
+```text
+occupancyMode = SEAT
+```
+
+o número de assentos deve acompanhar a capacidade configurada.
+
+Para:
+
+```text
+occupancyMode = QUANTITY
+```
+
+não são criados assentos.
+
+---
+
+# 32. Ajuste do seed para preservar eventos futuros
+
+Durante a Etapa 4 ocorreu erro ao executar:
+
+```text
+npx prisma db seed
+```
+
+com:
+
+```text
+P2003
+Foreign key constraint violated
+prisma.event.deleteMany()
+```
+
+O problema estava relacionado à tentativa de exclusão de eventos que já possuíam registros dependentes.
+
+O seed foi ajustado.
+
+Também foi preservada a decisão tomada na Etapa 3:
+
+- eventos de demonstração podem ser recriados;
+- eventos cadastrados futuramente por Organizadores não devem ser apagados indiscriminadamente pelo seed.
+
+Durante um dos testes, o erro voltou a aparecer porque o arquivo alterado ainda não havia sido salvo antes da execução.
+
+Após salvar corretamente o arquivo, o seed executou normalmente.
+
+---
+
+# 33. Usuários de teste
+
+O seed possui usuários para os três perfis utilizados no fluxo:
+
+```text
+ORGANIZER
+CLIENT
+CHECKIN
+```
+
+Foram utilizados:
+
+```text
+organizador@teste.com
+cliente1@teste.com
+cliente2@teste.com
+portaria@teste.com
+```
+
+O usuário da Portaria possui:
+
+```text
+role = CHECKIN
+```
+
+---
+
+# 34. Rota para iniciar checkout
+
+Foi implementada:
+
+```text
+POST /checkout
+```
+
+Protegida por:
+
+```text
+authenticate
+authorize("CLIENT")
+```
+
+Somente clientes autenticados podem iniciar checkout.
+
+---
+
+# 35. Estrutura de entrada do checkout
+
+O checkout recebe itens contendo informações como:
+
+```text
+ticketBatchPriceId
+quantity
+```
+
+e, para assentos, a identificação correspondente do lugar selecionado.
+
+Exemplo de teste `QUANTITY`:
+
+```json
+{
+  "items": [
+    {
+      "ticketBatchPriceId": "...",
+      "quantity": 10
+    }
+  ]
+}
+```
+
+---
+
+# 36. Teste do limite com 10 ingressos
+
+Foi enviado checkout com:
+
+```text
+quantity = 10
+```
+
+Resultado:
+
+```text
+Checkout iniciado com sucesso.
+```
+
+A sessão retornou:
+
+```text
+status = ACTIVE
+totalTickets = 10
+maxTickets = 10
+```
+
+---
+
+# 37. Teste do limite com 11 ingressos
+
+Foi enviado:
+
+```text
+quantity = 11
+```
+
+Resultado:
+
+```text
+É permitido comprar no máximo 10 ingressos por vez.
+```
+
+confirmando o bloqueio no backend.
+
+---
+
+# 38. Testes com preços reais dos lotes
+
+Foram consultados diretamente no Prisma os preços do evento Epica.
+
+Para PISTA / LOTE 1 / MEIA foi confirmado:
+
+```text
+priceInCents = 11000
+```
+
+Para PISTA / LOTE 2 / INTEIRA:
+
+```text
+priceInCents = 26000
+```
+
+Essas consultas também confirmaram os vínculos entre:
+
+```text
+TicketBatchPrice
+TicketBatch
+EventTicketCategory
+PriceCategoryTemplate
+```
+
+---
+
+# 39. Preços validados da Pista do Epica
+
+Foram confirmados:
+
+```text
+LOTE 1
+INTEIRA      = 22000
+MEIA         = 11000
+MEIA SOCIAL  = 14000
+```
+
+```text
+LOTE 2
+INTEIRA      = 26000
+MEIA         = 13000
+MEIA SOCIAL  = 16000
+```
+
+Os valores estão armazenados em centavos.
+
+---
+
+# 40. Testes com clientes diferentes
+
+Foram autenticados:
+
+```text
+cliente1@teste.com
+cliente2@teste.com
+```
+
+e armazenados tokens JWT separados:
+
+```text
+$token1
+$token2
+```
+
+Esses dois usuários foram utilizados nos testes de:
+
+- concorrência;
+- disputa por assentos;
+- tentativa de acesso a QR alheio;
+- autorização.
+
+---
+
+# 41. Checkout com múltiplos assentos
+
+Foi validada a criação de uma única sessão contendo múltiplos assentos.
+
+Em um dos testes foram utilizados:
+
+```text
+A20
+A21
+A22
+A23
+A24
+A25
+A26
+A27
+A28
+A29
+```
+
+Total:
+
+```text
+10 assentos
+```
+
+Todos ficaram:
+
+```text
+isAvailable = false
+```
+
+durante a sessão.
+
+---
+
+# 42. Sessão de 10 assentos
+
+A sessão de teste retornou:
+
+```text
+status = ACTIVE
+```
+
+com:
+
+```text
+10 CheckoutItems
+```
+
+e cada item:
+
+```text
+quantity = 1
+seatId != null
+```
+
+confirmando a representação individual de lugares.
+
+---
+
+# 43. Teste de assento bloqueado para outro cliente
+
+Enquanto um assento estava associado a checkout ativo de um cliente, o segundo cliente tentou selecioná-lo.
+
+O segundo checkout foi impedido de adquirir o mesmo lugar.
+
+Outro assento ainda disponível pôde ser selecionado normalmente.
+
+---
+
+# 44. Concorrência de assentos
+
+Foi testada disputa entre dois clientes pelo mesmo assento.
+
+A implementação utiliza operação atômica sobre a disponibilidade.
+
+A regra pretendida e validada foi:
+
+```text
+2 clientes tentam o mesmo assento
+↓
+somente 1 consegue bloqueá-lo
+```
+
+Isso evita dupla reserva.
+
+---
+
+# 45. Expiração testada manualmente
+
+Para evitar esperar 10 minutos durante os testes, `expiresAt` de uma sessão foi alterado manualmente para um horário anterior ao momento atual.
+
+Exemplo:
+
+```text
+status = ACTIVE
+expiresAt = passado
+```
+
+Depois foi realizada nova operação envolvendo o assento.
+
+---
+
+# 46. Liberação de sessão expirada
+
+O backend detectou a sessão expirada e:
+
+```text
+ACTIVE
+→ EXPIRED
+```
+
+liberou os assentos que não possuíam venda definitiva.
+
+Depois disso, outro cliente conseguiu iniciar nova sessão utilizando o mesmo lugar.
+
+---
+
+# 47. Função `releaseSessionSeats`
+
+Foi criada lógica de serviço para liberar os assentos de uma sessão.
+
+Ela:
+
+1. obtém os `seatId` dos itens;
+2. verifica se existe Ticket vendido para cada assento;
+3. considera como venda definitiva os estados:
+
+```text
+VALID
+USED
+```
+
+4. somente libera o assento quando não existe Ticket definitivo.
+
+Isso impede que uma limpeza de sessão torne disponível um assento já vendido.
+
+---
+
+# 48. Função `expireCheckoutIfNecessary`
+
+Foi implementada lógica para verificar:
+
+```text
+session.expiresAt
+```
+
+Quando a sessão expirou:
+
+- chama a liberação dos assentos;
+- atualiza a sessão para `EXPIRED`;
+- impede sua utilização como checkout ativo.
+
+---
+
+# 49. Finalização do checkout
+
+Foi criada a rota:
+
+```text
+POST /checkout/:checkoutId/complete
+```
+
+Protegida por:
+
+```text
+authenticate
+authorize("CLIENT")
+```
+
+A finalização é responsável por transformar intenção de compra em:
+
+```text
+Order
++
+Ticket(s)
+```
+
+quando todas as validações forem aprovadas.
+
+---
+
+# 50. Validação novamente na finalização
+
+Foi decidido que não basta validar disponibilidade quando o checkout começa.
+
+A disponibilidade precisa ser validada novamente no momento crítico:
+
+```text
+completeCheckout
+```
+
+Isso é especialmente importante para `QUANTITY`, que não bloqueia estoque.
+
+---
+
+# 51. Serviço de validação de estoque
+
+Foi criada a lógica:
+
+```text
+validateCheckoutStock
+```
+
+Ela agrupa as quantidades solicitadas por:
+
+```text
+lote
+modalidade
+setor
+evento
+grupo de cota
+```
+
+antes de concluir a compra.
+
+---
+
+# 52. Estados de Ticket considerados vendidos
+
+Para cálculo de estoque foram definidos:
+
+```text
+VALID
+USED
+```
+
+como estados que continuam consumindo capacidade.
+
+Um ingresso utilizado continua representando uma vaga vendida e não devolve estoque.
+
+---
+
+# 53. Validação da capacidade do lote
+
+Para cada lote:
+
+```text
+vendidos + solicitados <= TicketBatch.quantity
+```
+
+O lote também precisa existir e estar:
+
+```text
+isActive = true
+```
+
+Erros internos previstos:
+
+```text
+BATCH_UNAVAILABLE
+BATCH_SOLD_OUT
+```
+
+---
+
+# 54. Validação da capacidade da modalidade
+
+Para cada modalidade:
+
+```text
+vendidos + solicitados <= EventSectorModality.capacity
+```
+
+A contagem considera Tickets `VALID` e `USED` pertencentes à modalidade.
+
+---
+
+# 55. Validação da capacidade do setor
+
+Para cada setor:
+
+```text
+vendidos + solicitados <= EventSector.capacity
+```
+
+Isso impede que a soma das modalidades ultrapasse a capacidade física do setor.
+
+---
+
+# 56. Validação da capacidade total do evento
+
+Também é calculada a quantidade total de Tickets vendidos no evento.
+
+Regra:
+
+```text
+vendidos + solicitados <= Event.capacity
+```
+
+Isso cria quatro níveis de proteção:
+
+```text
+EVENTO
+SETOR
+MODALIDADE
+LOTE
+```
+
+---
+
+# 57. Grupo de cota `MEIA ENTRADA`
+
+A modelagem da Etapa 3 já havia definido o grupo:
+
+```text
+MEIA ENTRADA
+```
+
+com:
+
+```text
+maxPercentage = 50
+```
+
+Na Etapa 4 essa estrutura passou a ser efetivamente utilizada durante a venda.
+
+---
+
+# 58. Categorias pertencentes à cota
+
+Foram confirmadas:
+
+```text
+MEIA
+MEIA SOCIAL
+```
+
+dentro do mesmo grupo.
+
+`INTEIRA` possui:
+
+```text
+quotaGroupId = null
+```
+
+---
+
+# 59. Regra conjunta da cota
+
+A regra aplicada é:
+
+```text
+MEIA + MEIA SOCIAL <= 50% do lote
+```
+
+e não:
+
+```text
+MEIA <= 50%
+MEIA SOCIAL <= 50%
+```
+
+separadamente.
+
+Isso impede que as duas categorias juntas ultrapassem o limite legal/comercial configurado.
+
+---
+
+# 60. Cálculo da cota
+
+Para cada lote e grupo:
+
+```text
+maxAllowed =
+floor(
+    batch.quantity *
+    maxPercentage /
+    100
+)
+```
+
+Depois:
+
+```text
+vendidos no grupo
++
+solicitados no checkout
+<=
+maxAllowed
+```
+
+Caso contrário:
+
+```text
+QUOTA_LIMIT_REACHED
+```
+
+---
+
+# 61. Cota vinculada ao lote
+
+A cota é calculada por:
+
+```text
+batchId + quotaGroupId
+```
+
+Isso significa que cada lote possui seu próprio controle.
+
+---
+
+# 62. Progressão independente entre lotes
+
+Foi definida e testada uma regra importante:
+
+as categorias não precisam avançar de lote simultaneamente.
+
+Exemplo:
+
+```text
+LOTE 1
+
+MEIA + MEIA SOCIAL
+→ cota esgotada
+
+INTEIRA
+→ ainda disponível
+```
+
+Nesse momento:
+
+```text
+MEIA
+```
+
+pode estar disponível no:
+
+```text
+LOTE 2
+```
+
+enquanto:
+
+```text
+INTEIRA
+```
+
+continua sendo vendida no:
+
+```text
+LOTE 1
+```
+
+---
+
+# 63. Resultado da progressão independente
+
+O sistema suporta simultaneamente:
+
+```text
+INTEIRA → LOTE 1
+MEIA → LOTE 2
+```
+
+sem exigir que o lote inteiro seja encerrado para todas as categorias.
+
+---
+
+# 64. Teste de estoque do Epica
+
+Durante os testes foi consultado o estado dos lotes.
+
+Foi observado, em determinado momento:
+
+```text
+LOTE 1
+quantidade = 400
+vendidos = 12
+meiaGrupoVendidos = 0
+```
+
+```text
+LOTE 2
+quantidade = 400
+vendidos = 0
+meiaGrupoVendidos = 0
+```
+
+Esses valores refletiam o estado do banco naquele momento dos testes.
+
+---
+
+# 65. Concorrência em `QUANTITY`
+
+Foi criado cenário controlado em que dois checkouts solicitavam quantidade que, somada, ultrapassaria o estoque restante.
+
+Os dois conseguiram iniciar porque `QUANTITY` não reserva estoque.
+
+Na finalização:
+
+```text
+primeiro
+→ compra aprovada
+
+segundo
+→ indisponibilidade
+```
+
+confirmando a estratégia:
+
+```text
+first-to-complete wins
+```
+
+---
+
+# 66. Restauração após teste controlado
+
+Quando valores de capacidade/estoque foram temporariamente ajustados para criar cenários de concorrência, os valores originais foram restaurados após o teste.
+
+Isso evitou deixar o banco de desenvolvimento com configuração artificial.
+
+---
+
+# 67. Pagamento simulado
+
+Foi implementado pagamento simulado para permitir testar o fluxo completo sem integrar ainda um gateway real.
+
+Resultados utilizados:
+
+```text
+APPROVED
+REFUSED
+```
+
+---
+
+# 68. Pagamento `APPROVED`
+
+Quando o pagamento é aprovado:
+
+- estoque é validado;
+- `Order` é criado;
+- Tickets individuais são criados;
+- valores são registrados;
+- sessão passa para `COMPLETED`;
+- assentos vendidos permanecem indisponíveis.
+
+---
+
+# 69. Pagamento `REFUSED`
+
+Quando o pagamento é recusado:
+
+- a compra não é efetivada;
+- não é criado pedido aprovado;
+- não são criados Tickets;
+- sessão é cancelada;
+- assentos temporariamente bloqueados são liberados.
+
+Estado:
+
+```text
+CANCELLED
+```
+
+---
+
+# 70. Teste de pagamento recusado em `SEAT`
+
+Foi confirmado:
+
+```text
+CheckoutSession.status = CANCELLED
+```
+
+e:
+
+```text
+Order criado = 0
+Ticket criado = 0
+```
+
+O assento voltou a ficar disponível.
+
+---
+
+# 71. Teste de pagamento aprovado em `SEAT`
+
+Foi confirmado:
+
+```text
+CheckoutSession.status = COMPLETED
+```
+
+com:
+
+```text
+Order
+Ticket
+```
+
+criados.
+
+O assento permaneceu:
+
+```text
+isAvailable = false
+```
+
+porque agora estava vendido definitivamente.
+
+---
+
+# 72. Tentativa de comprar assento já vendido
+
+Depois da compra aprovada, outro cliente tentou utilizar o mesmo assento.
+
+A operação foi bloqueada.
+
+Isso confirmou que a indisponibilidade não era mais apenas temporária de checkout.
+
+---
+
+# 73. Teste de pagamento aprovado em `QUANTITY`
+
+Também foi concluída compra para modalidade sem assentos.
+
+A criação dos Tickets ocorreu sem `seatId`.
+
+Isso confirmou que a finalização atende os dois modos de ocupação.
+
+---
+
+# 74. Taxa de serviço
+
+Foi utilizada taxa padrão de:
+
+```text
+12%
+```
+
+---
+
+# 75. Representação da taxa
+
+O pedido registra separadamente:
+
+```text
+subtotalInCents
+serviceFeeRateBps
+serviceFeeInCents
+totalInCents
+```
+
+Isso evita perder a composição financeira do pedido.
+
+---
+
+# 76. Exemplo validado da taxa
+
+Para:
+
+```text
+R$ 40,00
+```
+
+foi validado:
+
+```text
+subtotal = R$ 40,00
+taxa 12% = R$ 4,80
+total = R$ 44,80
+```
+
+---
+
+# 77. Criação dos Tickets
+
+Cada ingresso adquirido é transformado em um registro individual de:
+
+```text
+Ticket
+```
+
+Mesmo quando o checkout utiliza:
+
+```text
+quantity > 1
+```
+
+a compra resulta em Tickets individuais.
+
+Isso permite que cada ingresso tenha:
+
+- identificador próprio;
+- QR próprio;
+- status próprio;
+- compartilhamento próprio;
+- assento próprio quando aplicável.
+
+---
+
+# 78. Estrutura de `Ticket`
+
+A entidade possui:
+
+```text
+id
+orderId
+ticketBatchPriceId
+seatId
+unitPriceInCents
+qrCodeHash
+status
+sharedToken
+createdAt
+updatedAt
+```
+
+---
+
+# 79. Valor efetivamente pago
+
+Cada Ticket registra:
+
+```text
+unitPriceInCents
+```
+
+representando o valor efetivamente pago pelo ingresso.
+
+Isso preserva o preço histórico mesmo que configurações comerciais sejam alteradas futuramente.
+
+---
+
+# 80. Estados do Ticket
+
+Foram utilizados:
+
+```text
+VALID
+USED
+CANCELLED
+```
+
+## `VALID`
+
+Ingresso válido e ainda não utilizado.
+
+## `USED`
+
+Ingresso já validado na entrada.
+
+## `CANCELLED`
+
+Ingresso cancelado e não utilizável.
+
+---
+
+# 81. Instalação da biblioteca de QR Code
+
+Foi adicionada a dependência:
+
+```text
+qrcode
+```
+
+através de:
+
+```text
+npm install qrcode
+```
+
+Isso alterou:
+
+```text
+backend/package.json
+backend/package-lock.json
+```
+
+---
+
+# 82. Aviso `allow-scripts`
+
+Durante a instalação foram exibidos avisos relacionados a scripts de instalação de:
+
+```text
+@prisma/client
+@prisma/engines
+prisma
+```
+
+O `npm` confirmou:
+
+```text
+found 0 vulnerabilities
+```
+
+O aviso não impediu a instalação da dependência `qrcode`.
+
+---
+
+# 83. Segredo específico do QR Code
+
+Foi adicionada variável:
+
+```text
+QR_SECRET
+```
+
+ao ambiente.
+
+Também foi atualizada:
+
+```text
+backend/.env.example
+```
+
+---
+
+# 84. Separação entre `JWT_SECRET` e `QR_SECRET`
+
+Foi decidido não reutilizar o segredo de autenticação para os ingressos.
+
+Assim:
+
+```text
+JWT_SECRET
+```
+
+é utilizado para autenticação de usuários.
+
+E:
+
+```text
+QR_SECRET
+```
+
+é utilizado para assinatura dos ingressos.
+
+Essa separação reduz o impacto caso uma das chaves precise ser substituída ou comprometida.
+
+---
+
+# 85. Serviço `qrCodeService.js`
+
+Foi criado:
+
+```text
+backend/src/services/qrCodeService.js
+```
+
+responsável pela lógica criptográfica e geração do QR.
+
+O serviço centraliza funções relacionadas a:
+
+- criação do token;
+- assinatura;
+- hash;
+- comparação do hash;
+- validação do token;
+- geração da imagem QR.
+
+---
+
+# 86. Token assinado do ingresso
+
+O QR utiliza token assinado.
+
+Algoritmo utilizado:
+
+```text
+HS256
+```
+
+---
+
+# 87. Payload do QR
+
+O payload foi mantido mínimo.
+
+Contém apenas dados necessários à validação, incluindo:
+
+```text
+tipo do token
+ticketId
+orderId
+```
+
+Não foram colocados dados pessoais do comprador no QR.
+
+---
+
+# 88. QR determinístico
+
+A geração foi construída para permitir regenerar o mesmo token utilizando:
+
+```text
+ticketId
++
+orderId
++
+QR_SECRET
+```
+
+Isso permite não armazenar o token original no banco.
+
+---
+
+# 89. `qrCodeHash`
+
+O token original do QR não é persistido.
+
+É calculado:
+
+```text
+SHA-256
+```
+
+e somente o resultado é armazenado em:
+
+```text
+Ticket.qrCodeHash
+```
+
+---
+
+# 90. Benefício de não armazenar o token original
+
+Caso o banco seja consultado diretamente, `qrCodeHash` não fornece imediatamente a credencial completa que será apresentada na entrada.
+
+A validação exige regeneração/verificação com o segredo da aplicação.
+
+---
+
+# 91. Teste criptográfico
+
+Foi testada a regeneração do token utilizando um Ticket existente.
+
+Foram confirmados:
+
+- token regenerado;
+- assinatura válida;
+- hash calculado;
+- correspondência com `qrCodeHash` armazenado.
+
+Também foi confirmado que o token original não estava persistido como campo do Ticket.
+
+---
+
+# 92. QR em formato de imagem
+
+O serviço gera:
+
+```text
+data:image/png;base64,...
+```
+
+permitindo que o Front-End apresente a imagem diretamente.
+
+---
+
+# 93. Controller de Tickets
+
+Foi criado:
+
+```text
+backend/src/controllers/ticketController.js
+```
+
+para operações relacionadas à visualização dos ingressos.
+
+---
+
+# 94. Rotas de Tickets
+
+Foi criado:
+
+```text
+backend/src/routes/ticketRoutes.js
+```
+
+e registrado no servidor:
+
+```text
+app.use("/tickets", ticketRoutes)
+```
+
+---
+
+# 95. Rota privada do QR
+
+Foi criada:
+
+```text
+GET /tickets/:ticketId/qr
+```
+
+---
+
+# 96. Autorização da rota privada
+
+A rota utiliza:
+
+```text
+authenticate
+authorize("CLIENT")
+```
+
+O usuário precisa estar autenticado como Cliente.
+
+---
+
+# 97. Verificação de propriedade
+
+A consulta exige:
+
+```text
+Ticket.id = ticketId
+```
+
+e:
+
+```text
+Order.clientId = req.user.id
+```
+
+Portanto, conhecer o ID de um ingresso não é suficiente para obter seu QR.
+
+---
+
+# 98. Proteção contra enumeração de ingressos
+
+Quando outro Cliente tenta acessar um Ticket que não pertence a ele, a resposta utilizada é:
+
+```text
+404
+Ingresso não encontrado.
+```
+
+em vez de revelar que o ingresso existe, mas pertence a outra pessoa.
+
+---
+
+# 99. Dados retornados ao proprietário
+
+A resposta privada inclui informações necessárias para exibição do ingresso, como:
+
+- ID;
+- status;
+- `sharedToken`;
+- evento;
+- data;
+- local;
+- cidade;
+- estado;
+- setor;
+- modalidade;
+- categoria de preço;
+- assento, quando existir;
+- valor unitário;
+- imagem do QR.
+
+---
+
+# 100. Teste do QR pelo proprietário
+
+Foi utilizado um Ticket pertencente ao Cliente 1.
+
+Resultado:
+
+- acesso autorizado;
+- dados do Ticket retornados;
+- QR gerado.
+
+Foi confirmado que:
+
+```text
+qrCode
+```
+
+começava com:
+
+```text
+data:image/png;base64,
+```
+
+---
+
+# 101. Teste de acesso por outro Cliente
+
+O Cliente 2 tentou acessar exatamente o mesmo:
+
+```text
+/tickets/:ticketId/qr
+```
+
+Resultado:
+
+```text
+404
+```
+
+confirmando o isolamento entre usuários.
+
+---
+
+# 102. `sharedToken`
+
+Cada Ticket possui:
+
+```text
+sharedToken
+```
+
+único.
+
+Ele tem finalidade diferente do token criptográfico utilizado no QR de entrada.
+
+---
+
+# 103. Separação entre compartilhamento e entrada
+
+Foi decidido que compartilhar um ingresso **não deve compartilhar a credencial utilizada na Portaria**.
+
+Assim existem dois conceitos:
+
+```text
+QR privado
+→ credencial de entrada
+```
+
+e:
+
+```text
+sharedToken
+→ visualização pública
+```
+
+---
+
+# 104. Rota pública de compartilhamento
+
+Foi criada:
+
+```text
+GET /tickets/shared/:sharedToken
+```
+
+Ela não exige autenticação.
+
+---
+
+# 105. Informações públicas do ingresso
+
+A rota compartilhada pode retornar informações como:
+
+- ID do ingresso;
+- status;
+- título do evento;
+- descrição;
+- imagem;
+- data;
+- categoria do evento;
+- local;
+- endereço;
+- cidade;
+- estado;
+- país;
+- setor;
+- modalidade;
+- categoria de preço;
+- identificação do assento quando aplicável;
+- valor unitário.
+
+---
+
+# 106. Dados que NÃO são retornados publicamente
+
+Foi deliberadamente impedida a exposição de:
+
+```text
+qrCode
+qrCodeHash
+token assinado
+orderId
+clientId
+email do comprador
+dados pessoais do comprador
+```
+
+O próprio `sharedToken` também não precisa ser repetido no corpo da resposta.
+
+---
+
+# 107. Teste automático de vazamento de dados
+
+A resposta pública foi convertida para JSON e verificada automaticamente para procurar:
+
+```text
+"qrCode"
+"qrCodeHash"
+"orderId"
+"clientId"
+"email"
+"sharedToken"
+```
+
+Todos deveriam resultar:
+
+```text
+False
+```
+
+e o teste passou.
+
+---
+
+# 108. `sharedToken` inexistente
+
+Foi testada uma URL contendo token inexistente.
+
+Resultado:
+
+```text
+404
+Ingresso não encontrado.
+```
+
+---
+
+# 109. Perfil de Portaria
+
+O schema de `User` possui:
+
+```text
+role
+```
+
+com os perfis:
+
+```text
+ORGANIZER
+CLIENT
+CHECKIN
+```
+
+O perfil utilizado pela Portaria é:
+
+```text
+CHECKIN
+```
+
+---
+
+# 110. Usuário de teste da Portaria
+
+Foi utilizado:
+
+```text
+portaria@teste.com
+```
+
+com:
+
+```text
+role = CHECKIN
+```
+
+O login foi realizado normalmente e seu JWT utilizado nos testes seguintes.
+
+---
+
+# 111. Controller de check-in
+
+Foi criado:
+
+```text
+backend/src/controllers/checkinController.js
+```
+
+---
+
+# 112. Rotas de check-in
+
+Foi criado:
+
+```text
+backend/src/routes/checkinRoutes.js
+```
+
+e registrado no servidor:
+
+```text
+app.use("/checkin", checkinRoutes)
+```
+
+---
+
+# 113. Endpoint da Portaria
+
+Foi implementado:
+
+```text
+POST /checkin/validate
+```
+
+---
+
+# 114. RBAC da Portaria
+
+A rota utiliza:
+
+```text
+authenticate
+authorize("CHECKIN")
+```
+
+Portanto, possuir um JWT válido não é suficiente.
+
+É necessário ter o perfil:
+
+```text
+CHECKIN
+```
+
+---
+
+# 115. Entrada da validação
+
+A Portaria envia:
+
+```json
+{
+  "token": "TOKEN_LIDO_DO_QR"
+}
+```
+
+---
+
+# 116. Validação inicial do token
+
+O backend verifica:
+
+- se `token` foi informado;
+- se é uma string;
+- se a assinatura é válida.
+
+Token ausente ou inválido é rejeitado.
+
+---
+
+# 117. Fluxo completo da Portaria
+
+A validação segue:
+
+```text
+QR lido
+↓
+token recebido
+↓
+assinatura verificada
+↓
+payload obtido
+↓
+Ticket localizado
+↓
+orderId conferido
+↓
+hash do token comparado com qrCodeHash
+↓
+status do Ticket conferido
+↓
+VALID → USED
+↓
+entrada autorizada
+```
+
+---
+
+# 118. Conferência do `orderId`
+
+Além do `ticketId`, o backend compara:
+
+```text
+ticket.orderId
+```
+
+com:
+
+```text
+payload.orderId
+```
+
+Uma inconsistência invalida o QR.
+
+---
+
+# 119. Conferência do `qrCodeHash`
+
+Mesmo após validar a assinatura, o token é comparado com:
+
+```text
+Ticket.qrCodeHash
+```
+
+Isso vincula a credencial ao valor registrado para aquele Ticket.
+
+---
+
+# 120. Ticket `CANCELLED`
+
+Se:
+
+```text
+status = CANCELLED
+```
+
+a entrada é recusada.
+
+---
+
+# 121. Ticket `USED`
+
+Se:
+
+```text
+status = USED
+```
+
+uma nova tentativa é recusada.
+
+Mensagem utilizada:
+
+```text
+Este ingresso já foi utilizado.
+```
+
+---
+
+# 122. Ticket `VALID`
+
+Somente:
+
+```text
+VALID
+```
+
+pode passar para:
+
+```text
+USED
+```
+
+e autorizar a entrada.
+
+---
+
+# 123. Atualização atômica no check-in
+
+A alteração não utiliza simplesmente uma atualização sem condição.
+
+Foi utilizada operação equivalente a:
+
+```text
+WHERE
+id = ticket.id
+AND
+status = VALID
+```
+
+com atualização:
+
+```text
+status = USED
+```
+
+A operação precisa afetar exatamente:
+
+```text
+1 registro
+```
+
+---
+
+# 124. Proteção contra duas catracas simultâneas
+
+A atualização atômica resolve o cenário:
+
+```text
+Catraca A lê QR
+Catraca B lê QR quase simultaneamente
+```
+
+Somente uma consegue executar:
+
+```text
+VALID → USED
+```
+
+A outra encontra o ingresso já consumido e não deve autorizar nova entrada.
+
+---
+
+# 125. Primeira leitura válida
+
+Foi gerado token para um Ticket com:
+
+```text
+status = VALID
+```
+
+A Portaria realizou:
+
+```text
+POST /checkin/validate
+```
+
+Resultado:
+
+```text
+200
+Ingresso validado. Entrada autorizada.
+```
+
+e:
+
+```text
+status = USED
+```
+
+---
+
+# 126. Segunda leitura do mesmo QR
+
+O mesmo token foi enviado novamente.
+
+Resultado:
+
+```text
+409
+Este ingresso já foi utilizado.
+```
+
+confirmando proteção contra reutilização.
+
+---
+
+# 127. QR adulterado
+
+Foi criada uma cópia do token alterando seu conteúdo final.
+
+O QR adulterado foi enviado pela Portaria.
+
+Resultado:
+
+```text
+400
+QR Code inválido.
+```
+
+confirmando a validação criptográfica.
+
+---
+
+# 128. Cliente tentando utilizar endpoint da Portaria
+
+Foi utilizado:
+
+```text
+$token1
+```
+
+de um usuário:
+
+```text
+CLIENT
+```
+
+contra:
+
+```text
+POST /checkin/validate
+```
+
+Resultado:
+
+```text
+403
+```
+
+confirmando o RBAC.
+
+---
+
+# 129. CHECKIN autorizado
+
+O token do usuário:
+
+```text
+CHECKIN
+```
+
+foi aceito pela mesma rota.
+
+Assim ficou validada a separação de responsabilidades entre:
+
+```text
+CLIENT
+CHECKIN
+```
+
+---
+
+# 130. Arquivos de serviços criados
+
+Durante a Etapa 4 foi criada a pasta:
+
+```text
+backend/src/services/
+```
+
+incluindo lógica de negócio que não deveria permanecer diretamente nos controllers.
+
+Entre os serviços implementados ficaram as responsabilidades de:
+
+- checkout/estoque;
+- liberação e expiração de reservas;
+- QR Code.
+
+---
+
+# 131. `checkoutService.js`
+
+O serviço passou a centralizar lógica como:
+
+```text
+releaseSessionSeats
+expireCheckoutIfNecessary
+validateCheckoutStock
+```
+
+reduzindo responsabilidade do controller.
+
+---
+
+# 132. `qrCodeService.js`
+
+O serviço passou a centralizar:
+
+- assinatura;
+- regeneração;
+- validação;
+- hashing;
+- comparação;
+- geração da imagem QR.
+
+---
+
+# 133. Alterações no `checkoutController.js`
+
+O controller de checkout foi ampliado para atender:
+
+- início de checkout;
+- validação dos itens;
+- limite de 10;
+- comportamento `QUANTITY`;
+- comportamento `SEAT`;
+- reserva de assentos;
+- expiração;
+- conclusão;
+- pagamento simulado;
+- criação de Order;
+- criação de Tickets;
+- geração e persistência do hash dos QRs;
+- liberação em cenários de falha/recusa.
+
+---
+
+# 134. Alterações no `checkoutRoutes.js`
+
+As rotas de checkout passaram a contemplar:
+
+```text
+POST /checkout
+POST /checkout/:checkoutId/complete
+```
+
+ambas restritas ao perfil:
+
+```text
+CLIENT
+```
+
+---
+
+# 135. Alterações no `server.js`
+
+O servidor passou a registrar:
+
+```text
+/auth
+/checkout
+/tickets
+/checkin
+```
+
+---
+
+# 136. Problema de porta durante os testes
+
+Durante a Etapa 4 ocorreu:
+
+```text
+EADDRINUSE
+address already in use :::3000
+```
+
+ao executar:
+
+```text
+npm run dev
+```
+
+Isso indicava outro processo Node utilizando a porta.
+
+---
+
+# 137. Diagnóstico do processo da porta 3000
+
+Foram utilizados comandos PowerShell para localizar o processo.
+
+Em uma consulta foi identificado:
+
+```text
+OwningProcess = 3620
+```
+
+Também houve processo Node anterior com outro PID durante o diagnóstico.
+
+---
+
+# 138. `Ctrl+C` não encerrou corretamente uma execução
+
+Em determinado momento, utilizar `Ctrl+C` no PowerShell não resolveu completamente o conflito.
+
+Foi necessário identificar explicitamente o processo que mantinha:
+
+```text
+port 3000
+```
+
+ocupada e encerrá-lo.
+
+Depois disso o servidor pôde iniciar normalmente.
+
+---
+
+# 139. Teste de disponibilidade do servidor
+
+Após corrigir o processo da porta, foi utilizado:
+
+```text
+GET http://localhost:3000/
+```
+
+para confirmar que a API estava novamente acessível.
+
+---
+
+# 140. Erro de conexão após encerrar o processo
+
+Depois de matar o processo que ocupava a porta, uma tentativa de login retornou:
+
+```text
+Impossível conectar-se ao servidor remoto
+```
+
+porque naquele momento nenhum servidor estava ativo.
+
+Após iniciar novamente o backend, os testes continuaram normalmente.
+
+---
+
+# 141. Erro de PowerShell durante teste
+
+Durante um teste foi digitado:
+
+```text
+$responseExpired.checkout$responseExpired.checkout
+```
+
+causando:
+
+```text
+ParserError
+UnexpectedToken
+```
+
+O comando correto:
+
+```text
+$responseExpired.checkout
+```
+
+funcionou normalmente.
+
+Esse problema era apenas de sintaxe no terminal e não do backend.
+
+---
+
+# 142. Teste de expiração e reutilização do assento
+
+Após forçar uma sessão a expirar, foi criado novo checkout.
+
+A nova sessão ficou:
+
+```text
+ACTIVE
+```
+
+com novo:
+
+```text
+expiresAt
+```
+
+e conseguiu reutilizar o assento anteriormente bloqueado.
+
+Isso confirmou o ciclo:
+
+```text
+reserva
+→ expiração
+→ liberação
+→ nova reserva
+```
+
+---
+
+# 143. Uso de transações
+
+Operações críticas de finalização e validação foram estruturadas utilizando transações do Prisma.
+
+Objetivos:
+
+- evitar criação parcial de pedidos;
+- evitar criação parcial de Tickets;
+- preservar consistência de estoque;
+- preservar consistência de assentos;
+- garantir alteração coerente dos estados.
+
+---
+
+# 144. Integridade entre checkout e venda definitiva
+
+Foi mantida separação conceitual:
+
+```text
+CheckoutSession / CheckoutItem
+```
+
+representam a tentativa/intenção de compra.
+
+Enquanto:
+
+```text
+Order / Ticket
+```
+
+representam a compra efetivada.
+
+Essa separação permite:
+
+- abandono;
+- expiração;
+- pagamento recusado;
+- concorrência;
+- finalização segura.
+
+---
+
+# 145. Segurança do QR
+
+As decisões de segurança da Etapa 4 incluem:
+
+- token assinado;
+- `QR_SECRET` próprio;
+- payload mínimo;
+- ausência de dados pessoais;
+- armazenamento apenas do hash;
+- validação da assinatura;
+- comparação do hash;
+- vínculo com `ticketId`;
+- vínculo com `orderId`;
+- controle de status;
+- atualização atômica para uso;
+- QR privado disponível apenas ao proprietário.
+
+---
+
+# 146. Segurança do compartilhamento
+
+O compartilhamento público foi separado do QR.
+
+O link público:
+
+```text
+sharedToken
+```
+
+não concede acesso à credencial utilizada na entrada.
+
+Assim, publicar ou enviar o link compartilhado não equivale a entregar o QR válido da Portaria.
+
+---
+
+# 147. Segurança de autorização
+
+Foram aplicadas regras:
+
+```text
+CLIENT
+→ checkout
+→ visualizar QR próprio
+```
+
+```text
+CHECKIN
+→ validar entrada
+```
+
+O middleware de autenticação identifica o usuário e o middleware de autorização restringe o perfil.
+
+---
+
+# 148. Testes de autenticação e autorização
+
+Foram utilizados múltiplos usuários reais do seed para evitar validar o sistema apenas com um único JWT.
+
+Foram testados:
+
+- Cliente 1;
+- Cliente 2;
+- Portaria.
+
+Isso permitiu confirmar tanto autenticação quanto isolamento e RBAC.
+
+---
+
+# 149. Testes de `SEAT`
+
+Foram realizados e validados:
+
+- geração automática de assentos;
+- quantidade de assentos igual à capacidade;
+- ausência de assentos em `QUANTITY`;
+- seleção de um assento;
+- seleção de múltiplos assentos;
+- seleção de 10 assentos;
+- bloqueio de 11;
+- indisponibilidade para outro Cliente;
+- escolha de outro lugar pelo segundo Cliente;
+- expiração;
+- liberação;
+- nova seleção após expiração;
+- concorrência pelo mesmo lugar;
+- pagamento recusado;
+- liberação após recusa;
+- pagamento aprovado;
+- indisponibilidade definitiva após venda;
+- tentativa de recompra de lugar vendido.
+
+---
+
+# 150. Testes de `QUANTITY`
+
+Foram realizados e validados:
+
+- checkout com quantidade pequena;
+- checkout com 10;
+- bloqueio de 11;
+- combinação de categorias;
+- combinação de lotes;
+- ausência de bloqueio antecipado de estoque;
+- múltiplos checkouts concorrentes;
+- validação definitiva na conclusão;
+- primeiro a concluir vencendo a disputa;
+- segundo checkout sendo rejeitado quando o estoque acaba;
+- criação de Tickets sem assento.
+
+---
+
+# 151. Testes de capacidades
+
+Foram validados controles de:
+
+```text
+TicketBatch.quantity
+EventSectorModality.capacity
+EventSector.capacity
+Event.capacity
+```
+
+A finalização não depende apenas do estoque nominal do preço.
+
+---
+
+# 152. Testes de cota
+
+Foram realizados:
+
+- identificação do grupo `MEIA ENTRADA`;
+- confirmação de `maxPercentage = 50`;
+- confirmação de `MEIA` no grupo;
+- confirmação de `MEIA SOCIAL` no grupo;
+- confirmação de `INTEIRA` fora do grupo;
+- vendas combinadas de `MEIA + MEIA SOCIAL`;
+- tentativa de ultrapassar 50%;
+- rejeição do excedente;
+- confirmação de que `INTEIRA` permanece disponível;
+- confirmação de categoria da cota em lote seguinte.
+
+---
+
+# 153. Testes de lotes
+
+Foram confirmados os dois lotes da Pista do Epica:
+
+```text
+LOTE 1
+quantity = 400
+```
+
+```text
+LOTE 2
+quantity = 400
+```
+
+Também foram confirmados os preços individuais de cada categoria nos dois lotes.
+
+---
+
+# 154. Testes de pagamento
+
+Foram validados:
+
+```text
+APPROVED
+REFUSED
+```
+
+incluindo efeitos sobre:
+
+- sessão;
+- pedido;
+- Tickets;
+- assentos;
+- estoque;
+- valores.
+
+---
+
+# 155. Testes da taxa
+
+Foi validado o cálculo de:
+
+```text
+12%
+```
+
+e o armazenamento separado de subtotal, taxa e total.
+
+---
+
+# 156. Testes do QR
+
+Foram validados:
+
+- criação do token;
+- assinatura;
+- regeneração;
+- determinismo;
+- SHA-256;
+- correspondência com `qrCodeHash`;
+- ausência do token original no banco;
+- geração da imagem;
+- acesso pelo proprietário;
+- bloqueio de outro Cliente.
+
+---
+
+# 157. Testes do compartilhamento
+
+Foram validados:
+
+- acesso sem autenticação;
+- `sharedToken` válido;
+- retorno de informações públicas;
+- ausência de QR;
+- ausência de hash;
+- ausência de `orderId`;
+- ausência de `clientId`;
+- ausência de e-mail;
+- ausência de dados pessoais;
+- ausência do próprio `sharedToken` no corpo;
+- `sharedToken` inexistente retornando `404`.
+
+---
+
+# 158. Testes da Portaria
+
+Foram validados:
+
+- login do perfil `CHECKIN`;
+- QR legítimo;
+- primeira entrada autorizada;
+- mudança `VALID → USED`;
+- segunda leitura bloqueada;
+- QR adulterado bloqueado;
+- Cliente impedido de validar ingresso;
+- CHECKIN autorizado.
+
+---
+
+# 159. Testes de concorrência
+
+A Etapa 4 incluiu dois tipos distintos de concorrência.
+
+## Concorrência `SEAT`
+
+```text
+mesmo assento
+→ somente um checkout consegue bloquear
+```
+
+## Concorrência `QUANTITY`
+
+```text
+mesmo estoque
+→ múltiplos checkouts podem começar
+→ somente quem concluir enquanto houver estoque compra
+```
+
+## Concorrência no check-in
+
+```text
+mesmo Ticket VALID
+→ apenas uma operação consegue alterar para USED
+```
+
+---
+
+# 160. Testes de expiração
+
+Foi validado:
+
+```text
+ACTIVE
+→ tempo excedido
+→ EXPIRED
+```
+
+com:
+
+```text
+liberação dos assentos
+```
+
+e possibilidade de nova reserva.
+
+---
+
+# 161. Arquivos envolvidos na implementação
+
+Entre os arquivos alterados/criados durante a Etapa 4 estão:
+
+```text
+backend/.env.example
+backend/package.json
+backend/package-lock.json
+backend/prisma/schema.prisma
+backend/prisma/seed.js
+backend/src/server.js
+backend/src/controllers/checkoutController.js
+backend/src/controllers/ticketController.js
+backend/src/controllers/checkinController.js
+backend/src/routes/checkoutRoutes.js
+backend/src/routes/ticketRoutes.js
+backend/src/routes/checkinRoutes.js
+backend/src/services/checkoutService.js
+backend/src/services/qrCodeService.js
+```
+
+Além das migrations correspondentes às alterações de banco realizadas durante a etapa.
+
+---
+
+# 162. Validações do Prisma
+
+Durante as alterações de modelagem foram utilizados:
+
+```text
+npx prisma format
+npx prisma validate
+```
+
+Também foi regenerado o Prisma Client após alterações necessárias.
+
+---
+
+# 163. Migrations
+
+As alterações estruturais do banco foram aplicadas através do fluxo de migrations do Prisma.
+
+Também foi verificado o estado do banco com:
+
+```text
+npx prisma migrate status
+```
+
+para confirmar que a estrutura utilizada pelos testes estava atualizada.
+
+---
+
+# 164. Seeds
+
+Foi executado:
+
+```text
+npx prisma db seed
+```
+
+após as alterações necessárias.
+
+O seed passou a contemplar:
+
+- usuários de teste;
+- eventos;
+- setores;
+- modalidades;
+- lotes;
+- preços;
+- categorias;
+- cotas;
+- assentos.
+
+---
+
+# 165. Inspeções diretas com Prisma
+
+Além das rotas HTTP, foram utilizadas consultas diretas com:
+
+```text
+node -e
+```
+
+e Prisma para verificar estados internos que não deveriam depender apenas da resposta da API.
+
+Foram inspecionados:
+
+- preços;
+- lotes;
+- categorias;
+- modalidades;
+- capacidades;
+- assentos;
+- sessões;
+- Tickets;
+- estoque vendido;
+- grupos de cota;
+- hashes.
+
+---
+
+# 166. Estratégia de testes
+
+Os testes foram realizados incrementalmente.
+
+Após cada alteração importante:
+
+1. servidor era reiniciado ou atualizado pelo `node --watch`;
+2. endpoint era testado;
+3. estado interno era consultado quando necessário;
+4. somente após confirmação o desenvolvimento avançava.
+
+Essa estratégia evitou acumular várias alterações sem validação intermediária.
+
+---
+
+# 167. Microcommits
+
+A Etapa 4 foi desenvolvida utilizando commits intermediários em vez de concentrar toda a implementação em um único commit.
+
+Antes dos commits foram utilizados:
+
+```text
+git status --short
+git diff --cached --name-only
+```
+
+para conferir exatamente quais arquivos seriam incluídos.
+
+---
+
+# 168. Separação da documentação dos commits funcionais
+
+O arquivo:
+
+```text
+documents/etapas_desenvolvimento.md
+```
+
+foi mantido fora de determinados microcommits funcionais para permitir documentar a etapa somente após validar o comportamento implementado.
+
+---
+
+# 169. Bloco de QR + compartilhamento + check-in
+
+No fechamento desse bloco funcional estavam envolvidos:
+
+```text
+backend/.env.example
+backend/package-lock.json
+backend/package.json
+backend/src/controllers/checkoutController.js
+backend/src/server.js
+backend/src/controllers/checkinController.js
+backend/src/controllers/ticketController.js
+backend/src/routes/checkinRoutes.js
+backend/src/routes/ticketRoutes.js
+backend/src/services/qrCodeService.js
+```
+
+enquanto:
+
+```text
+documents/etapas_desenvolvimento.md
+```
+
+permaneceu separado para o fechamento documental da Etapa 4.
+
+---
+
+# 170. Decisões que pertencem ao Front-End futuro
+
+Embora esta etapa seja focada no backend, ficaram definidas regras que deverão ser refletidas na interface:
+
+- exibir no máximo 10 ingressos por compra;
+- impedir seleção do 11º;
+- mostrar assento bloqueado/vendido simplesmente como indisponível;
+- atualizar disponibilidade quando reservas expirarem;
+- apresentar QR apenas ao proprietário autenticado;
+- permitir página pública pelo `sharedToken` sem QR;
+- criar interface específica para Portaria;
+- enviar o token lido ao endpoint de check-in;
+- diferenciar visualmente entrada autorizada e rejeitada.
+
+---
+
+# 171. Regras preparadas para criação dinâmica de eventos
+
+Os dados dos seeds não representam limites fixos da plataforma.
+
+Quando o CRUD do Organizador for implementado, o fluxo deverá permitir que ele configure:
+
+- capacidade total;
+- setores;
+- capacidade de cada setor;
+- modalidades;
+- modo `SEAT` ou `QUANTITY`;
+- capacidade de cada modalidade;
+- lotes;
+- quantidade dos lotes;
+- preços;
+- categorias comerciais;
+- assentos quando aplicável.
+
+O backend deverá derivar e validar as opções a partir da capacidade informada pelo Organizador.
+
+---
+
+# 172. Integridade hierárquica futura
+
+A configuração dinâmica deverá impedir inconsistências como:
+
+```text
+setor maior que evento
+```
+
+```text
+modalidades incompatíveis com capacidade do setor
+```
+
+```text
+vendas superiores à capacidade física
+```
+
+```text
+quantidade de assentos diferente da capacidade configurada
+```
+
+```text
+lotes permitindo vendas acima dos limites definidos
+```
+
+A Etapa 4 já implementou as validações de venda necessárias para respeitar os níveis de capacidade existentes.
+
+---
+
+# 173. Funcionalidades concluídas nesta Etapa
+
+Ao final da Etapa 4, o backend possui:
+
+```text
+autenticação de Cliente
+        ↓
+seleção de ingresso
+        ↓
+checkout
+        ↓
+limite de 10
+        ↓
+SEAT ou QUANTITY
+        ↓
+reserva quando necessária
+        ↓
+expiração quando necessária
+        ↓
+validação de estoque
+        ↓
+validação de capacidades
+        ↓
+validação de cotas
+        ↓
+pagamento simulado
+        ↓
+taxa de serviço
+        ↓
+Order
+        ↓
+Ticket individual
+        ↓
+QR assinado
+        ↓
+visualização privada
+        ↓
+compartilhamento público seguro
+        ↓
+leitura pela Portaria
+        ↓
+VALID → USED
+```
+
+---
+
+# 174. Endpoints consolidados da Etapa 4
+
+```text
+POST /checkout
+```
+
+Inicia checkout do Cliente.
+
+```text
+POST /checkout/:checkoutId/complete
+```
+
+Finaliza o checkout e executa o pagamento simulado.
+
+```text
+GET /tickets/:ticketId/qr
+```
+
+Retorna o QR privado para o proprietário.
+
+```text
+GET /tickets/shared/:sharedToken
+```
+
+Retorna a visualização pública segura.
+
+```text
+POST /checkin/validate
+```
+
+Valida o ingresso na Portaria.
+
+---
+
+# 175. Segurança consolidada
+
+Ao final da Etapa 4 foram aplicadas proteções para:
+
+- autenticação;
+- autorização por perfil;
+- propriedade do ingresso;
+- limite de compra;
+- estoque;
+- capacidade;
+- cotas;
+- concorrência;
+- reservas;
+- expiração;
+- pagamentos recusados;
+- QR adulterado;
+- acesso indevido ao QR;
+- exposição de dados no compartilhamento;
+- reutilização do ingresso;
+- leituras simultâneas na Portaria.
+
+---
+
+# 176. O que NÃO foi implementado nesta Etapa
+
+Permanecem para etapas futuras:
+
+- gateway de pagamento real;
+- integração com adquirente;
+- PIX real;
+- cartão real;
+- estorno financeiro real;
+- reembolso;
+- cancelamento completo com devolução automática de estoque;
+- transferência de titularidade;
+- histórico detalhado de check-in;
+- registro do operador que realizou cada leitura;
+- registro dedicado de data/hora do check-in além do estado atual;
+- envio de ingresso por e-mail;
+- carteira digital;
+- interface visual de seleção de assentos;
+- scanner visual da Portaria;
+- Front-End do checkout;
+- CRUD completo do Organizador para configuração dinâmica dessas capacidades;
+- integrações externas previstas em outras etapas.
+
+---
+
+# 177. Testes realizados — checklist consolidado
+
+### Banco e modelagem
+
+- [x] `npx prisma format`.
+- [x] `npx prisma validate`.
+- [x] Prisma Client regenerado.
+- [x] Migrations aplicadas.
+- [x] `npx prisma migrate status`.
+- [x] Seed executado.
+- [x] Seed corrigido após conflito de FK.
+- [x] Reexecução do seed validada.
+
+### Capacidades e assentos
+
+- [x] Capacidade das modalidades consultada.
+- [x] Assentos gerados somente para `SEAT`.
+- [x] Zero assentos em `QUANTITY`.
+- [x] 300 assentos do Teatro.
+- [x] 200 assentos dos quatro Camarotes do Epica.
+- [x] 500 assentos da Cadeira Superior.
+- [x] 500 assentos da Cadeira Inferior.
+- [x] 120 assentos do Cinema.
+- [x] Total de 1620 assentos confirmado.
+
+### Limite de compra
+
+- [x] Checkout abaixo de 10.
+- [x] Checkout com exatamente 10.
+- [x] Checkout com 11 rejeitado.
+- [x] Limite entre categorias.
+- [x] Limite entre lotes.
+- [x] Limite entre assentos.
+
+### `SEAT`
+
+- [x] Reserva de um assento.
+- [x] Reserva de vários assentos.
+- [x] Assento indisponível para segundo Cliente.
+- [x] Outro assento disponível para segundo Cliente.
+- [x] Concorrência pelo mesmo assento.
+- [x] Apenas um Cliente consegue reservar.
+- [x] Expiração forçada.
+- [x] Sessão alterada para `EXPIRED`.
+- [x] Assento liberado.
+- [x] Assento reutilizado em novo checkout.
+- [x] Pagamento recusado libera assento.
+- [x] Pagamento aprovado mantém assento indisponível.
+- [x] Assento vendido não pode ser comprado novamente.
+
+### `QUANTITY`
+
+- [x] Checkout sem bloqueio de estoque.
+- [x] Dois checkouts concorrentes.
+- [x] Ambos conseguem iniciar.
+- [x] Primeiro consegue concluir.
+- [x] Segundo é rejeitado após estoque acabar.
+- [x] Estoque validado somente na conclusão.
+- [x] Ticket sem `seatId`.
+
+### Estoque e capacidade
+
+- [x] Validação por lote.
+- [x] Validação por modalidade.
+- [x] Validação por setor.
+- [x] Validação por evento.
+- [x] Tickets `VALID` contabilizados.
+- [x] Tickets `USED` continuam contabilizados.
+
+### Cotas
+
+- [x] Grupo `MEIA ENTRADA` identificado.
+- [x] Limite de 50% confirmado.
+- [x] `MEIA` pertencente ao grupo.
+- [x] `MEIA SOCIAL` pertencente ao grupo.
+- [x] `INTEIRA` fora do grupo.
+- [x] Soma `MEIA + MEIA SOCIAL` validada.
+- [x] Excesso bloqueado.
+- [x] `INTEIRA` permanece disponível.
+- [x] Progressão independente para outro lote confirmada.
+
+### Pagamento
+
+- [x] `APPROVED`.
+- [x] `REFUSED`.
+- [x] `Order` criado somente quando aplicável.
+- [x] Tickets criados somente quando aplicável.
+- [x] Sessão `COMPLETED` no sucesso.
+- [x] Sessão `CANCELLED` na recusa.
+- [x] Liberação de assentos na recusa.
+- [x] Taxa de 12%.
+- [x] Subtotal registrado.
+- [x] Taxa registrada.
+- [x] Total registrado.
+
+### QR
+
+- [x] Biblioteca `qrcode` instalada.
+- [x] `QR_SECRET` separado.
+- [x] Token assinado.
+- [x] HS256.
+- [x] Payload mínimo.
+- [x] Token determinístico.
+- [x] SHA-256.
+- [x] `qrCodeHash` persistido.
+- [x] Token original não persistido.
+- [x] Token regenerado.
+- [x] Hash comparado.
+- [x] Assinatura validada.
+- [x] Imagem Base64 gerada.
+
+### QR privado
+
+- [x] Proprietário consegue acessar.
+- [x] Outro Cliente recebe `404`.
+- [x] Propriedade verificada por `Order.clientId`.
+- [x] Ticket cancelado tratado.
+- [x] Integridade do hash verificada.
+
+### Compartilhamento
+
+- [x] Rota sem login.
+- [x] `sharedToken` válido.
+- [x] Informações públicas retornadas.
+- [x] Sem QR.
+- [x] Sem `qrCodeHash`.
+- [x] Sem token assinado.
+- [x] Sem `orderId`.
+- [x] Sem `clientId`.
+- [x] Sem e-mail.
+- [x] Sem dados pessoais.
+- [x] Sem `sharedToken` no corpo.
+- [x] Token inexistente retorna `404`.
+
+### Portaria
+
+- [x] Usuário `CHECKIN` autenticado.
+- [x] `CLIENT` bloqueado.
+- [x] QR válido aceito.
+- [x] Ticket `VALID → USED`.
+- [x] Segunda leitura rejeitada.
+- [x] QR adulterado rejeitado.
+- [x] Atualização atômica utilizada.
+- [x] `CANCELLED` previsto como inválido.
+- [x] `USED` previsto como inválido.
+
+### Infraestrutura de desenvolvimento
+
+- [x] Conflito `EADDRINUSE` diagnosticado.
+- [x] Processo da porta 3000 identificado.
+- [x] Processo antigo encerrado.
+- [x] Servidor reiniciado.
+- [x] Endpoint raiz utilizado para validar funcionamento.
+- [x] Erro de sintaxe PowerShell identificado como externo à aplicação.
+
+---
+
+# 178. Uso de IA nesta Etapa
+
+### Modelagem e arquitetura
+
+Uso de IA para apoio na análise da estrutura necessária para:
+
+- `CheckoutSession`;
+- `CheckoutItem`;
+- reservas;
+- expiração;
+- estoque;
+- Tickets;
+- QR;
+- check-in.
+
+### Implementação
+
+Uso de IA como apoio na geração e revisão de:
+
+- controllers;
+- routes;
+- services;
+- consultas Prisma;
+- transações;
+- validações;
+- lógica de concorrência;
+- QR Code;
+- RBAC.
+
+### Testes
+
+Uso de IA para criação dos comandos de teste em:
+
+```text
+PowerShell
+Node.js
+Prisma
+```
+
+e construção incremental dos cenários de:
+
+- estoque;
+- assentos;
+- concorrência;
+- expiração;
+- pagamento;
+- cotas;
+- lotes;
+- QR;
+- compartilhamento;
+- Portaria.
+
+### Diagnóstico
+
+Uso de IA para auxiliar na identificação de:
+
+- erros do Prisma;
+- FK no seed;
+- conflito de porta;
+- processos Node;
+- erros de PowerShell;
+- comportamento de concorrência;
+- estados inconsistentes durante testes.
+
+---
+
+# 179. Decisões Humanas / Manuais
+
+As principais decisões de produto e regras de negócio foram definidas manualmente durante o desenvolvimento.
+
+Entre elas:
+
+- máximo de 10 ingressos por compra;
+- Front-End deverá impedir visualmente o 11º ingresso;
+- `QUANTITY` não reserva estoque;
+- `QUANTITY` utiliza regra de quem finaliza primeiro;
+- `SEAT` reserva assento;
+- reserva de `SEAT` dura no máximo 10 minutos;
+- estado de reserva temporária não deve ser exposto ao usuário;
+- assento temporariamente reservado aparece apenas como indisponível;
+- capacidade de novos eventos será definida pelo Organizador;
+- sistema deverá ajustar/validar configurações a partir dessa capacidade;
+- setores devem respeitar capacidade do evento;
+- modalidades devem respeitar capacidade dos setores;
+- assentos devem acompanhar a capacidade de modalidades `SEAT`;
+- taxa de serviço definida em 12%;
+- `MEIA` e `MEIA SOCIAL` compartilham cota;
+- limite conjunto definido em 50%;
+- `INTEIRA` não pertence à cota;
+- categorias podem avançar de lote independentemente;
+- QR de entrada deve ser privado;
+- compartilhamento público não deve revelar QR;
+- `sharedToken` não deve funcionar como credencial de entrada;
+- QR deve utilizar segredo separado do JWT;
+- token original não deve ser armazenado no banco;
+- Portaria utiliza perfil `CHECKIN`;
+- Ticket só pode ser utilizado uma vez;
+- reutilização deve ser bloqueada;
+- validação deve suportar concorrência entre leitores;
+- testes foram executados e conferidos manualmente antes do avanço para o próximo bloco.
+

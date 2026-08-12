@@ -1,30 +1,52 @@
+import crypto from "crypto";
+
 import prisma from "../lib/prisma.js";
+
+import {
+    expireCheckoutIfNecessary,
+    releaseSessionSeats,
+    validateCheckoutStock,
+} from "../services/checkoutService.js";
 
 const MAX_TICKETS_PER_CHECKOUT = 10;
 const SEAT_HOLD_MINUTES = 10;
+const SERVICE_FEE_RATE_BPS = 1200;
 
 function getSeatExpirationDate() {
-    const expiresAt = new Date();
-
-    expiresAt.setMinutes(
-        expiresAt.getMinutes() + SEAT_HOLD_MINUTES
+    return new Date(
+        Date.now() +
+        SEAT_HOLD_MINUTES * 60 * 1000
     );
-
-    return expiresAt;
 }
 
 function calculateRequestedTickets(items) {
-    return items.reduce((total, item) => {
-        if (Array.isArray(item.seatIds)) {
-            return total + item.seatIds.length;
-        }
+    return items.reduce(
+        (total, item) => {
+            if (
+                Array.isArray(
+                    item.seatIds
+                )
+            ) {
+                return (
+                    total +
+                    item.seatIds.length
+                );
+            }
 
-        return total + (item.quantity || 0);
-    }, 0);
+            return (
+                total +
+                (item.quantity || 0)
+            );
+        },
+        0
+    );
 }
 
-async function releaseExpiredSeatHolds(tx, now) {
-    const expiredSessions =
+async function releaseExpiredSeatHolds(
+    tx,
+    now
+) {
+    const sessions =
         await tx.checkoutSession.findMany({
             where: {
                 status: "ACTIVE",
@@ -32,44 +54,17 @@ async function releaseExpiredSeatHolds(tx, now) {
                     lte: now,
                 },
             },
+
             include: {
-                items: {
-                    where: {
-                        seatId: {
-                            not: null,
-                        },
-                    },
-                },
+                items: true,
             },
         });
 
-    for (const session of expiredSessions) {
-        for (const item of session.items) {
-            if (!item.seatId) {
-                continue;
-            }
-
-            const soldTicket =
-                await tx.ticket.findFirst({
-                    where: {
-                        seatId: item.seatId,
-                        status: {
-                            in: ["VALID", "USED"],
-                        },
-                    },
-                });
-
-            if (!soldTicket) {
-                await tx.seat.update({
-                    where: {
-                        id: item.seatId,
-                    },
-                    data: {
-                        isAvailable: true,
-                    },
-                });
-            }
-        }
+    for (const session of sessions) {
+        await releaseSessionSeats(
+            tx,
+            session
+        );
 
         await tx.checkoutSession.update({
             where: {
@@ -82,15 +77,21 @@ async function releaseExpiredSeatHolds(tx, now) {
     }
 }
 
-export async function startCheckout(req, res) {
+// ======================================================
+// INICIAR CHECKOUT
+// ======================================================
+
+export async function startCheckout(
+    req,
+    res
+) {
     try {
         const { items } = req.body;
 
-        // ==================================================
-        // VALIDAÇÕES GERAIS
-        // ==================================================
-
-        if (!Array.isArray(items) || items.length === 0) {
+        if (
+            !Array.isArray(items) ||
+            items.length === 0
+        ) {
             return res.status(400).json({
                 message:
                     "Selecione pelo menos um ingresso para continuar.",
@@ -102,7 +103,8 @@ export async function startCheckout(req, res) {
 
         if (
             totalRequested < 1 ||
-            totalRequested > MAX_TICKETS_PER_CHECKOUT
+            totalRequested >
+            MAX_TICKETS_PER_CHECKOUT
         ) {
             return res.status(400).json({
                 message:
@@ -113,7 +115,9 @@ export async function startCheckout(req, res) {
         const requestedPrices = [];
 
         for (const item of items) {
-            if (!item.ticketBatchPriceId) {
+            if (
+                !item.ticketBatchPriceId
+            ) {
                 return res.status(400).json({
                     message:
                         "Todos os ingressos devem possuir uma opção de preço.",
@@ -121,37 +125,45 @@ export async function startCheckout(req, res) {
             }
 
             const ticketBatchPrice =
-                await prisma.ticketBatchPrice.findUnique({
-                    where: {
-                        id: item.ticketBatchPriceId,
-                    },
-                    include: {
-                        ticketBatch: {
-                            include: {
-                                eventSectorModality: {
-                                    include: {
-                                        eventSector: {
-                                            include: {
-                                                event: true,
-                                                sectorTemplate: true,
+                await prisma.ticketBatchPrice
+                    .findUnique({
+                        where: {
+                            id:
+                                item.ticketBatchPriceId,
+                        },
+
+                        include: {
+                            ticketBatch: {
+                                include: {
+                                    eventSectorModality: {
+                                        include: {
+                                            eventSector: {
+                                                include: {
+                                                    event: true,
+                                                    sectorTemplate:
+                                                        true,
+                                                },
                                             },
+
+                                            modalityTemplate:
+                                                true,
                                         },
-                                        modalityTemplate: true,
+                                    },
+                                },
+                            },
+
+                            eventTicketCategory: {
+                                include: {
+                                    priceCategoryTemplate: {
+                                        include: {
+                                            quotaGroup:
+                                                true,
+                                        },
                                     },
                                 },
                             },
                         },
-                        eventTicketCategory: {
-                            include: {
-                                priceCategoryTemplate: {
-                                    include: {
-                                        quotaGroup: true,
-                                    },
-                                },
-                            },
-                        },
-                    },
-                });
+                    });
 
             if (!ticketBatchPrice) {
                 return res.status(404).json({
@@ -160,7 +172,11 @@ export async function startCheckout(req, res) {
                 });
             }
 
-            if (!ticketBatchPrice.ticketBatch.isActive) {
+            if (
+                !ticketBatchPrice
+                    .ticketBatch
+                    .isActive
+            ) {
                 return res.status(409).json({
                     message:
                         "Um dos lotes selecionados não está disponível.",
@@ -169,13 +185,10 @@ export async function startCheckout(req, res) {
 
             requestedPrices.push({
                 request: item,
-                data: ticketBatchPrice,
+                data:
+                    ticketBatchPrice,
             });
         }
-
-        // ==================================================
-        // TODOS OS INGRESSOS DEVEM SER DO MESMO EVENTO
-        // ==================================================
 
         const eventIds = new Set(
             requestedPrices.map(
@@ -193,20 +206,27 @@ export async function startCheckout(req, res) {
             });
         }
 
-        // ==================================================
-        // VALIDAÇÃO DE CADA ITEM
-        // ==================================================
-
         let containsSeat = false;
 
-        for (const { request, data } of requestedPrices) {
+        for (
+            const {
+                request,
+                data,
+            }
+            of requestedPrices
+        ) {
             const modality =
-                data.ticketBatch.eventSectorModality;
+                data.ticketBatch
+                    .eventSectorModality;
 
-            if (modality.occupancyMode === "QUANTITY") {
+            if (
+                modality.occupancyMode ===
+                "QUANTITY"
+            ) {
                 if (
                     request.seatIds &&
-                    request.seatIds.length > 0
+                    request.seatIds.length >
+                    0
                 ) {
                     return res.status(400).json({
                         message:
@@ -215,7 +235,9 @@ export async function startCheckout(req, res) {
                 }
 
                 if (
-                    !Number.isInteger(request.quantity) ||
+                    !Number.isInteger(
+                        request.quantity
+                    ) ||
                     request.quantity < 1
                 ) {
                     return res.status(400).json({
@@ -227,12 +249,18 @@ export async function startCheckout(req, res) {
                 continue;
             }
 
-            if (modality.occupancyMode === "SEAT") {
+            if (
+                modality.occupancyMode ===
+                "SEAT"
+            ) {
                 containsSeat = true;
 
                 if (
-                    !Array.isArray(request.seatIds) ||
-                    request.seatIds.length === 0
+                    !Array.isArray(
+                        request.seatIds
+                    ) ||
+                    request.seatIds
+                        .length === 0
                 ) {
                     return res.status(400).json({
                         message:
@@ -240,9 +268,10 @@ export async function startCheckout(req, res) {
                     });
                 }
 
-                const uniqueSeatIds = new Set(
-                    request.seatIds
-                );
+                const uniqueSeatIds =
+                    new Set(
+                        request.seatIds
+                    );
 
                 if (
                     uniqueSeatIds.size !==
@@ -265,183 +294,197 @@ export async function startCheckout(req, res) {
 
         const now = new Date();
 
-        const expiresAt = containsSeat
-            ? getSeatExpirationDate()
-            : null;
-
-        // ==================================================
-        // TRANSAÇÃO
-        // ==================================================
+        const expiresAt =
+            containsSeat
+                ? getSeatExpirationDate()
+                : null;
 
         const checkoutSession =
-            await prisma.$transaction(async (tx) => {
-                // Libera bloqueios de assentos expirados.
-                await releaseExpiredSeatHolds(
-                    tx,
-                    now
-                );
+            await prisma.$transaction(
+                async (tx) => {
+                    await releaseExpiredSeatHolds(
+                        tx,
+                        now
+                    );
 
-                const session =
-                    await tx.checkoutSession.create({
-                        data: {
-                            clientId: req.user.id,
-                            status: "ACTIVE",
-                            expiresAt,
-                        },
-                    });
+                    const session =
+                        await tx.checkoutSession
+                            .create({
+                                data: {
+                                    clientId:
+                                        req.user.id,
 
-                for (
-                    const { request, data }
-                    of requestedPrices
-                ) {
-                    const modality =
-                        data.ticketBatch
-                            .eventSectorModality;
+                                    status:
+                                        "ACTIVE",
 
-                    // ======================================
-                    // QUANTITY
-                    // ======================================
-                    //
-                    // Não bloqueia estoque.
-                    //
-                    // Mesmo que a quantidade disponível
-                    // seja menor do que o número de pessoas
-                    // atualmente em checkout, todas podem
-                    // iniciar o processo.
-                    //
-                    // O estoque será disputado somente na
-                    // finalização da compra.
-                    // ======================================
-
-                    if (
-                        modality.occupancyMode ===
-                        "QUANTITY"
-                    ) {
-                        await tx.checkoutItem.create({
-                            data: {
-                                checkoutSessionId:
-                                    session.id,
-
-                                ticketBatchPriceId:
-                                    data.id,
-
-                                quantity:
-                                    request.quantity,
-
-                                seatId: null,
-                            },
-                        });
-
-                        continue;
-                    }
-
-                    // ======================================
-                    // SEAT
-                    // ======================================
-
-                    for (const seatId of request.seatIds) {
-                        const seat =
-                            await tx.seat.findUnique({
-                                where: {
-                                    id: seatId,
+                                    expiresAt,
                                 },
                             });
 
-                        if (!seat) {
-                            throw new Error(
-                                "SEAT_NOT_FOUND"
-                            );
+                    for (
+                        const {
+                            request,
+                            data,
                         }
+                        of requestedPrices
+                    ) {
+                        const modality =
+                            data.ticketBatch
+                                .eventSectorModality;
+
+                        // ==============================
+                        // QUANTITY
+                        // ==============================
 
                         if (
-                            seat.eventSectorModalityId !==
-                            modality.id
+                            modality
+                                .occupancyMode ===
+                            "QUANTITY"
                         ) {
-                            throw new Error(
-                                "INVALID_SEAT"
-                            );
-                        }
+                            await tx.checkoutItem
+                                .create({
+                                    data: {
+                                        checkoutSessionId:
+                                            session.id,
 
-                        // Verifica se já existe ingresso
-                        // definitivo para o assento.
-                        const soldTicket =
-                            await tx.ticket.findFirst({
-                                where: {
-                                    seatId,
-                                    status: {
-                                        in: [
-                                            "VALID",
-                                            "USED",
-                                        ],
+                                        ticketBatchPriceId:
+                                            data.id,
+
+                                        quantity:
+                                            request.quantity,
+
+                                        seatId:
+                                            null,
                                     },
-                                },
-                            });
+                                });
 
-                        if (soldTicket) {
-                            throw new Error(
-                                "SEAT_UNAVAILABLE"
-                            );
+                            continue;
                         }
 
-                        // Bloqueio atômico.
-                        //
-                        // Apenas uma requisição conseguirá
-                        // alterar isAvailable de true para
-                        // false.
-                        const seatLock =
-                            await tx.seat.updateMany({
-                                where: {
-                                    id: seatId,
-                                    isAvailable: true,
-                                },
-                                data: {
-                                    isAvailable: false,
-                                },
-                            });
+                        // ==============================
+                        // SEAT
+                        // ==============================
 
-                        if (seatLock.count !== 1) {
-                            throw new Error(
-                                "SEAT_UNAVAILABLE"
-                            );
+                        for (
+                            const seatId
+                            of request.seatIds
+                        ) {
+                            const seat =
+                                await tx.seat
+                                    .findUnique({
+                                        where: {
+                                            id:
+                                                seatId,
+                                        },
+                                    });
+
+                            if (!seat) {
+                                throw new Error(
+                                    "SEAT_NOT_FOUND"
+                                );
+                            }
+
+                            if (
+                                seat
+                                    .eventSectorModalityId !==
+                                modality.id
+                            ) {
+                                throw new Error(
+                                    "INVALID_SEAT"
+                                );
+                            }
+
+                            const soldTicket =
+                                await tx.ticket
+                                    .findFirst({
+                                        where: {
+                                            seatId,
+
+                                            status: {
+                                                in: [
+                                                    "VALID",
+                                                    "USED",
+                                                ],
+                                            },
+                                        },
+                                    });
+
+                            if (
+                                soldTicket
+                            ) {
+                                throw new Error(
+                                    "SEAT_UNAVAILABLE"
+                                );
+                            }
+
+                            const seatLock =
+                                await tx.seat
+                                    .updateMany({
+                                        where: {
+                                            id:
+                                                seatId,
+                                            isAvailable:
+                                                true,
+                                        },
+
+                                        data: {
+                                            isAvailable:
+                                                false,
+                                        },
+                                    });
+
+                            if (
+                                seatLock.count !==
+                                1
+                            ) {
+                                throw new Error(
+                                    "SEAT_UNAVAILABLE"
+                                );
+                            }
+
+                            await tx.checkoutItem
+                                .create({
+                                    data: {
+                                        checkoutSessionId:
+                                            session.id,
+
+                                        ticketBatchPriceId:
+                                            data.id,
+
+                                        seatId,
+
+                                        quantity:
+                                            1,
+                                    },
+                                });
                         }
+                    }
 
-                        await tx.checkoutItem.create({
-                            data: {
-                                checkoutSessionId:
+                    return tx.checkoutSession
+                        .findUnique({
+                            where: {
+                                id:
                                     session.id,
+                            },
 
-                                ticketBatchPriceId:
-                                    data.id,
-
-                                seatId,
-
-                                quantity: 1,
+                            include: {
+                                items:
+                                    true,
                             },
                         });
-                    }
                 }
-
-                return tx.checkoutSession.findUnique({
-                    where: {
-                        id: session.id,
-                    },
-                    include: {
-                        items: true,
-                    },
-                });
-            });
-
-        // ==================================================
-        // RESPOSTA
-        // ==================================================
+            );
 
         return res.status(201).json({
             message:
                 "Checkout iniciado com sucesso.",
 
             checkout: {
-                id: checkoutSession.id,
-                status: checkoutSession.status,
+                id:
+                    checkoutSession.id,
+
+                status:
+                    checkoutSession.status,
 
                 totalTickets:
                     totalRequested,
@@ -458,7 +501,8 @@ export async function startCheckout(req, res) {
         });
     } catch (error) {
         if (
-            error.message === "SEAT_UNAVAILABLE"
+            error.message ===
+            "SEAT_UNAVAILABLE"
         ) {
             return res.status(409).json({
                 message:
@@ -466,14 +510,20 @@ export async function startCheckout(req, res) {
             });
         }
 
-        if (error.message === "SEAT_NOT_FOUND") {
+        if (
+            error.message ===
+            "SEAT_NOT_FOUND"
+        ) {
             return res.status(404).json({
                 message:
                     "Um dos assentos selecionados não foi encontrado.",
             });
         }
 
-        if (error.message === "INVALID_SEAT") {
+        if (
+            error.message ===
+            "INVALID_SEAT"
+        ) {
             return res.status(400).json({
                 message:
                     "Um dos assentos selecionados não pertence à modalidade escolhida.",
@@ -482,6 +532,396 @@ export async function startCheckout(req, res) {
 
         console.error(
             "Erro ao iniciar checkout:",
+            error
+        );
+
+        return res.status(500).json({
+            message:
+                "Erro interno do servidor.",
+        });
+    }
+}
+
+// ======================================================
+// FINALIZAR CHECKOUT
+// ======================================================
+
+export async function completeCheckout(
+    req,
+    res
+) {
+    try {
+        const { checkoutId } =
+            req.params;
+
+        const {
+            paymentStatus,
+        } = req.body;
+
+        if (
+            ![
+                "APPROVED",
+                "REFUSED",
+            ].includes(paymentStatus)
+        ) {
+            return res.status(400).json({
+                message:
+                    "Informe um resultado de pagamento válido.",
+            });
+        }
+
+        const result =
+            await prisma.$transaction(
+                async (tx) => {
+                    const session =
+                        await tx.checkoutSession
+                            .findFirst({
+                                where: {
+                                    id:
+                                        checkoutId,
+
+                                    clientId:
+                                        req.user.id,
+                                },
+
+                                include: {
+                                    items: {
+                                        include: {
+                                            ticketBatchPrice: {
+                                                include: {
+                                                    ticketBatch: {
+                                                        include: {
+                                                            eventSectorModality: {
+                                                                include: {
+                                                                    eventSector: {
+                                                                        include: {
+                                                                            event:
+                                                                                true,
+                                                                        },
+                                                                    },
+                                                                },
+                                                            },
+                                                        },
+                                                    },
+
+                                                    eventTicketCategory: {
+                                                        include: {
+                                                            priceCategoryTemplate: {
+                                                                include: {
+                                                                    quotaGroup:
+                                                                        true,
+                                                                },
+                                                            },
+                                                        },
+                                                    },
+                                                },
+                                            },
+
+                                            seat:
+                                                true,
+                                        },
+                                    },
+                                },
+                            });
+
+                    if (!session) {
+                        throw new Error(
+                            "CHECKOUT_NOT_FOUND"
+                        );
+                    }
+
+                    if (
+                        session.status !==
+                        "ACTIVE"
+                    ) {
+                        throw new Error(
+                            "CHECKOUT_NOT_ACTIVE"
+                        );
+                    }
+
+                    const now =
+                        new Date();
+
+                    const expired =
+                        await expireCheckoutIfNecessary(
+                            tx,
+                            session,
+                            now
+                        );
+
+                    if (expired) {
+                        throw new Error(
+                            "CHECKOUT_EXPIRED"
+                        );
+                    }
+
+                    // ==============================
+                    // PAGAMENTO RECUSADO
+                    // ==============================
+
+                    if (
+                        paymentStatus ===
+                        "REFUSED"
+                    ) {
+                        await releaseSessionSeats(
+                            tx,
+                            session
+                        );
+
+                        await tx.checkoutSession
+                            .update({
+                                where: {
+                                    id:
+                                        session.id,
+                                },
+
+                                data: {
+                                    status:
+                                        "CANCELLED",
+                                },
+                            });
+
+                        return {
+                            refused: true,
+                        };
+                    }
+
+                    // ==============================
+                    // ESTOQUE REAL
+                    // ==============================
+
+                    await validateCheckoutStock(
+                        tx,
+                        session
+                    );
+
+                    // ==============================
+                    // VALORES
+                    // ==============================
+
+                    let subtotalInCents = 0;
+
+                    for (
+                        const item
+                        of session.items
+                    ) {
+                        subtotalInCents +=
+                            item
+                                .ticketBatchPrice
+                                .priceInCents *
+                            item.quantity;
+                    }
+
+                    const serviceFeeInCents =
+                        Math.round(
+                            subtotalInCents *
+                            SERVICE_FEE_RATE_BPS /
+                            10000
+                        );
+
+                    const totalInCents =
+                        subtotalInCents +
+                        serviceFeeInCents;
+
+                    // ==============================
+                    // PEDIDO
+                    // ==============================
+
+                    const order =
+                        await tx.order.create({
+                            data: {
+                                clientId:
+                                    req.user.id,
+
+                                status:
+                                    "APPROVED",
+
+                                subtotalInCents,
+
+                                serviceFeeRateBps:
+                                    SERVICE_FEE_RATE_BPS,
+
+                                serviceFeeInCents,
+
+                                totalInCents,
+                            },
+                        });
+
+                    // ==============================
+                    // INGRESSOS
+                    // ==============================
+
+                    for (
+                        const item
+                        of session.items
+                    ) {
+                        for (
+                            let i = 0;
+                            i <
+                            item.quantity;
+                            i++
+                        ) {
+                            await tx.ticket.create({
+                                data: {
+                                    orderId:
+                                        order.id,
+
+                                    ticketBatchPriceId:
+                                        item
+                                            .ticketBatchPriceId,
+
+                                    seatId:
+                                        item.seatId,
+
+                                    unitPriceInCents:
+                                        item
+                                            .ticketBatchPrice
+                                            .priceInCents,
+
+                                    qrCodeHash:
+                                        crypto
+                                            .randomBytes(
+                                                32
+                                            )
+                                            .toString(
+                                                "hex"
+                                            ),
+                                },
+                            });
+                        }
+                    }
+
+                    await tx.checkoutSession
+                        .update({
+                            where: {
+                                id:
+                                    session.id,
+                            },
+
+                            data: {
+                                status:
+                                    "COMPLETED",
+                            },
+                        });
+
+                    return {
+                        refused: false,
+
+                        orderId:
+                            order.id,
+
+                        subtotalInCents,
+
+                        serviceFeeInCents,
+
+                        totalInCents,
+
+                        ticketCount:
+                            session.items
+                                .reduce(
+                                    (
+                                        total,
+                                        item
+                                    ) =>
+                                        total +
+                                        item.quantity,
+                                    0
+                                ),
+                    };
+                }
+            );
+
+        if (result.refused) {
+            return res.status(402).json({
+                message:
+                    "Pagamento recusado. A compra não foi concluída.",
+            });
+        }
+
+        return res.status(201).json({
+            message:
+                "Compra concluída com sucesso.",
+
+            order: {
+                id:
+                    result.orderId,
+
+                subtotalInCents:
+                    result.subtotalInCents,
+
+                serviceFeeInCents:
+                    result.serviceFeeInCents,
+
+                serviceFeeRate:
+                    "12%",
+
+                totalInCents:
+                    result.totalInCents,
+
+                ticketCount:
+                    result.ticketCount,
+            },
+        });
+    } catch (error) {
+        if (
+            error.message ===
+            "CHECKOUT_NOT_FOUND"
+        ) {
+            return res.status(404).json({
+                message:
+                    "Checkout não encontrado.",
+            });
+        }
+
+        if (
+            error.message ===
+            "CHECKOUT_NOT_ACTIVE"
+        ) {
+            return res.status(409).json({
+                message:
+                    "Este checkout não está mais ativo.",
+            });
+        }
+
+        if (
+            error.message ===
+            "CHECKOUT_EXPIRED"
+        ) {
+            return res.status(409).json({
+                message:
+                    "O tempo para concluir sua compra expirou. Inicie novamente.",
+            });
+        }
+
+        if (
+            [
+                "BATCH_UNAVAILABLE",
+                "BATCH_SOLD_OUT",
+                "MODALITY_SOLD_OUT",
+                "SECTOR_SOLD_OUT",
+                "EVENT_SOLD_OUT",
+            ].includes(
+                error.message
+            )
+        ) {
+            return res.status(409).json({
+                message:
+                    "Um ou mais ingressos não estão mais disponíveis. Atualize sua seleção e tente novamente.",
+            });
+        }
+
+        if (
+            error.message ===
+            "QUOTA_LIMIT_REACHED"
+        ) {
+            return res.status(409).json({
+                message:
+                    "O limite desta categoria foi atingido neste lote. Atualize sua seleção para verificar o próximo lote disponível.",
+            });
+        }
+
+        console.error(
+            "Erro ao finalizar checkout:",
             error
         );
 

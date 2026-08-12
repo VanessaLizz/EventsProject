@@ -1,6 +1,7 @@
 import { Router } from "express";
 
 import {
+    completeCheckout,
     startCheckout,
 } from "../controllers/checkoutController.js";
 
@@ -19,6 +20,13 @@ router.post(
     authenticate,
     authorize("CLIENT"),
     startCheckout
+);
+
+router.post(
+    "/:checkoutId/complete",
+    authenticate,
+    authorize("CLIENT"),
+    completeCheckout
 );
 
 export default router;

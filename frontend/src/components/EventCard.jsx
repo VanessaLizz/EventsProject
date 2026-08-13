@@ -27,9 +27,7 @@ export default function EventCard({
             <div className="event-card-image">
                 {event.imageUrl ? (
                     <img
-                        src={
-                            event.imageUrl
-                        }
+                        src={event.imageUrl}
                         alt={`Imagem do evento ${event.title}`}
                     />
                 ) : (
@@ -37,10 +35,8 @@ export default function EventCard({
                         className="event-card-placeholder"
                         aria-hidden="true"
                     >
-                        <span>
-                            {
-                                categoryName
-                            }
+                        <span className="event-card-placeholder-brand">
+                            Boraí
                         </span>
                     </div>
                 )}
@@ -55,13 +51,13 @@ export default function EventCard({
                     {event.title}
                 </h2>
 
-                <p>
+                <p className="event-card-date">
                     {formatEventDate(
                         event.dateTime
                     )}
                 </p>
 
-                <p>
+                <p className="event-card-location">
                     {event.venueName &&
                         `${event.venueName} — `}
 

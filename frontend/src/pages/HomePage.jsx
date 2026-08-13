@@ -82,17 +82,27 @@ export default function HomePage() {
                     </h1>
 
                     <p className="home-hero-description">
-                        Shows, teatro,
-                        cinema, literatura
-                        e muito mais.
+                        Descubra shows,
+                        teatro, cinema,
+                        literatura e experiências
+                        para todos os momentos.
                     </p>
 
-                    <Link
-                        to="/eventos"
-                        className="home-hero-button"
-                    >
-                        Explorar eventos
-                    </Link>
+                    <div className="home-hero-actions">
+                        <Link
+                            to="/eventos"
+                            className="home-hero-button"
+                        >
+                            Explorar eventos
+                        </Link>
+
+                        <a
+                            href="#categorias"
+                            className="home-hero-secondary"
+                        >
+                            Ver categorias
+                        </a>
+                    </div>
                 </div>
 
                 <div
@@ -107,22 +117,27 @@ export default function HomePage() {
 
             <main className="home-main">
                 {isLoading && (
-                    <p>
+                    <p className="home-status">
                         Carregando eventos...
                     </p>
                 )}
 
                 {error && (
-                    <p role="alert">
+                    <p
+                        className="home-status"
+                        role="alert"
+                    >
                         {error}
                     </p>
                 )}
 
                 {!isLoading &&
                     !error &&
-                    categories.length >
-                    0 && (
-                        <section className="home-categories">
+                    categories.length > 0 && (
+                        <section
+                            id="categorias"
+                            className="home-categories"
+                        >
                             <div className="section-heading">
                                 <div>
                                     <p>
@@ -133,6 +148,10 @@ export default function HomePage() {
                                         Explore por categoria
                                     </h2>
                                 </div>
+
+                                <Link to="/eventos">
+                                    Todos os eventos
+                                </Link>
                             </div>
 
                             <div className="category-grid">
@@ -187,15 +206,11 @@ export default function HomePage() {
                                             src={
                                                 featuredEvent.imageUrl
                                             }
-                                            alt=""
+                                            alt={`Imagem do evento ${featuredEvent.title}`}
                                         />
                                     ) : (
-                                        <span>
-                                            {
-                                                featuredEvent
-                                                    .categoryTemplate
-                                                    ?.name
-                                            }
+                                        <span className="featured-event-brand">
+                                            Boraí
                                         </span>
                                     )}
                                 </div>
@@ -230,6 +245,13 @@ export default function HomePage() {
                                     </span>
 
                                     <span>
+                                        {
+                                            featuredEvent.venueName
+                                        }
+
+                                        {featuredEvent.venueName &&
+                                            " — "}
+
                                         {
                                             featuredEvent.city
                                         }
@@ -281,6 +303,21 @@ export default function HomePage() {
                                     )
                                 )}
                             </div>
+                        </section>
+                    )}
+
+                {!isLoading &&
+                    !error &&
+                    events.length === 0 && (
+                        <section className="home-empty">
+                            <h2>
+                                Novos eventos em breve
+                            </h2>
+
+                            <p>
+                                Ainda não há eventos
+                                publicados.
+                            </p>
                         </section>
                     )}
             </main>

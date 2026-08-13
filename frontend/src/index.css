@@ -1616,4 +1616,164 @@ main form button[type="submit"]:hover {
       padding: 7px 13px;
     }
   }
+
+  /* ======================================================
+   HOME E CARDS — ACABAMENTO
+   ====================================================== */
+
+  .home-hero-actions {
+    margin-top: 32px;
+
+    display: flex;
+    align-items: center;
+
+    gap: 18px;
+  }
+
+  .home-hero-actions .home-hero-button {
+    margin-top: 0;
+  }
+
+  .home-hero-secondary {
+    color: #ffffff;
+
+    font-weight: 700;
+
+    text-decoration: none;
+
+    border-bottom:
+      2px solid var(--coral-soft);
+
+    padding-bottom: 3px;
+  }
+
+  .home-hero-secondary:hover {
+    color:
+      var(--coral-soft);
+  }
+
+  .home-status {
+    padding: 20px;
+
+    border-radius: 10px;
+
+    background:
+      var(--surface);
+
+    border:
+      1px solid var(--border);
+  }
+
+  .event-card-placeholder {
+    position: relative;
+  }
+
+  .event-card-placeholder::before {
+    content: "";
+
+    position: absolute;
+
+    width: 130px;
+    height: 130px;
+
+    border-radius: 50%;
+
+    background:
+      rgba(255,
+        255,
+        255,
+        0.08);
+
+    transform:
+      translate(70px,
+        -45px);
+  }
+
+  .event-card-placeholder::after {
+    content: "";
+
+    position: absolute;
+
+    width: 90px;
+    height: 90px;
+
+    border:
+      18px solid rgba(255,
+        255,
+        255,
+        0.08);
+
+    border-radius: 50%;
+
+    transform:
+      translate(-95px,
+        65px);
+  }
+
+  .event-card-placeholder-brand {
+    position: relative;
+    z-index: 1;
+
+    font-family:
+      var(--font-brand);
+
+    font-size: 2.2rem;
+    font-weight: 400;
+
+    letter-spacing: 0;
+
+    text-transform: none;
+  }
+
+  .featured-event-brand {
+    font-family:
+      var(--font-brand);
+
+    font-size:
+      clamp(3rem,
+        8vw,
+        6rem);
+
+    font-weight: 400;
+
+    letter-spacing: 0;
+
+    text-transform: none;
+  }
+
+  .event-card-date {
+    font-weight: 700;
+
+    color:
+      var(--green-dark) !important;
+  }
+
+  .event-card-location {
+    min-height: 46px;
+  }
+
+  .home-empty {
+    padding: 50px 30px;
+
+    text-align: center;
+
+    border:
+      1px solid var(--border);
+
+    border-radius: 14px;
+
+    background:
+      var(--surface);
+  }
+
+  @media (max-width: 640px) {
+    .home-hero-actions {
+      align-items:
+        flex-start;
+
+      flex-direction: column;
+
+      gap: 14px;
+    }
+  }
 }

@@ -2239,4 +2239,108 @@ main form button[type="submit"]:disabled {
       padding: 22px;
     }
   }
+
+  /* ======================================================
+   PÁGINA 404
+   ====================================================== */
+
+  .not-found-page {
+    min-height:
+      calc(100vh - 72px);
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+
+    text-align: center;
+  }
+
+  .not-found-code {
+    margin: 0 0 8px;
+
+    color: var(--pink);
+
+    font-family: var(--font-mono);
+
+    font-size:
+      clamp(3rem,
+        10vw,
+        6rem);
+
+    font-weight: 800;
+  }
+
+  .not-found-page h1 {
+    margin-bottom: 14px;
+  }
+
+  .not-found-description {
+    max-width: 520px;
+
+    margin: 0;
+
+    color: var(--text-soft);
+  }
+
+  .not-found-actions {
+    margin-top: 28px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    gap: 14px;
+  }
+
+  .not-found-primary,
+  .not-found-secondary {
+    min-height: 44px;
+
+    padding: 10px 18px;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 8px;
+
+    font-weight: 700;
+
+    text-decoration: none;
+  }
+
+  .not-found-primary {
+    background: var(--coral);
+
+    color: #ffffff;
+  }
+
+  .not-found-primary:hover {
+    background: var(--pink);
+  }
+
+  .not-found-secondary {
+    border:
+      1px solid var(--border);
+
+    background: var(--surface);
+
+    color: var(--text);
+  }
+
+  .not-found-secondary:hover {
+    border-color: var(--purple);
+
+    color: var(--purple);
+  }
+
+  @media (max-width: 520px) {
+    .not-found-actions {
+      width: 100%;
+
+      align-items: stretch;
+      flex-direction: column;
+    }
+  }
 }

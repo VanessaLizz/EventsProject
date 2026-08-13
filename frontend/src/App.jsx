@@ -8,12 +8,12 @@ import ProtectedRoute from "./routes/ProtectedRoute.jsx";
 
 import HomePage from "./pages/HomePage.jsx";
 import EventsPage from "./pages/EventsPage.jsx";
+import EventDetailsPage from "./pages/EventDetailsPage.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
 import ClientPage from "./pages/ClientPage.jsx";
 import OrganizerPage from "./pages/OrganizerPage.jsx";
 import CheckinPage from "./pages/CheckinPage.jsx";
 import NotFoundPage from "./pages/NotFoundPage.jsx";
-import EventDetailsPage from "./pages/EventDetailsPage.jsx";
 
 export default function App() {
   return (
@@ -37,6 +37,11 @@ export default function App() {
         <Route
           path="/login"
           element={<LoginPage />}
+        />
+
+        <Route
+          path="*"
+          element={<NotFoundPage />}
         />
       </Route>
 
@@ -86,11 +91,6 @@ export default function App() {
           element={<CheckinPage />}
         />
       </Route>
-
-      <Route
-        path="*"
-        element={<NotFoundPage />}
-      />
     </Routes>
   );
 }

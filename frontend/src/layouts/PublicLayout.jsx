@@ -1,5 +1,6 @@
 import {
     Link,
+    NavLink,
     Outlet,
     useNavigate,
 } from "react-router";
@@ -47,48 +48,75 @@ export default function PublicLayout() {
 
     return (
         <>
-            <header>
-                <nav>
-                    <Link to="/">
+            <header className="site-header">
+                <nav className="site-nav">
+                    <Link
+                        to="/"
+                        className="site-logo"
+                    >
                         Boraí
                     </Link>
 
-                    <Link to="/eventos">
-                        Eventos
-                    </Link>
+                    <div className="site-nav-main">
+                        <NavLink
+                            to="/eventos"
+                            className={({
+                                isActive,
+                            }) =>
+                                isActive
+                                    ? "nav-link active"
+                                    : "nav-link"
+                            }
+                        >
+                            Eventos
+                        </NavLink>
+                    </div>
 
-                    {isAuthenticated ? (
-                        <>
-                            {roleLink && (
-                                <Link
-                                    to={
-                                        roleLink.path
+                    <div className="site-nav-account">
+                        {isAuthenticated ? (
+                            <>
+                                {roleLink && (
+                                    <NavLink
+                                        to={
+                                            roleLink.path
+                                        }
+                                        className={({
+                                            isActive,
+                                        }) =>
+                                            isActive
+                                                ? "nav-link active"
+                                                : "nav-link"
+                                        }
+                                    >
+                                        {
+                                            roleLink.label
+                                        }
+                                    </NavLink>
+                                )}
+
+                                <span className="nav-user">
+                                    Olá, {user.name}
+                                </span>
+
+                                <button
+                                    type="button"
+                                    className="nav-logout"
+                                    onClick={
+                                        handleLogout
                                     }
                                 >
-                                    {
-                                        roleLink.label
-                                    }
-                                </Link>
-                            )}
-
-                            <span>
-                                Olá, {user.name}
-                            </span>
-
-                            <button
-                                type="button"
-                                onClick={
-                                    handleLogout
-                                }
+                                    Sair
+                                </button>
+                            </>
+                        ) : (
+                            <NavLink
+                                to="/login"
+                                className="nav-login"
                             >
-                                Sair
-                            </button>
-                        </>
-                    ) : (
-                        <Link to="/login">
-                            Entrar
-                        </Link>
-                    )}
+                                Entrar
+                            </NavLink>
+                        )}
+                    </div>
                 </nav>
             </header>
 

@@ -1,6 +1,7 @@
 import {
     Navigate,
     Outlet,
+    useLocation,
 } from "react-router";
 
 import {
@@ -10,6 +11,9 @@ import {
 export default function ProtectedRoute({
     allowedRoles,
 }) {
+    const location =
+        useLocation();
+
     const {
         user,
         isAuthenticated,
@@ -20,6 +24,10 @@ export default function ProtectedRoute({
             <Navigate
                 to="/login"
                 replace
+                state={{
+                    from:
+                        location.pathname,
+                }}
             />
         );
     }

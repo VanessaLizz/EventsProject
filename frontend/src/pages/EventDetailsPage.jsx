@@ -79,27 +79,45 @@ export default function EventDetailsPage() {
 
     if (isLoading) {
         return (
-            <main>
-                <p>
-                    Carregando evento...
-                </p>
+            <main className="event-details-page">
+                <div className="event-details-status">
+                    <p>
+                        Carregando evento...
+                    </p>
+                </div>
             </main>
         );
     }
 
-    if (error) {
+    if (error || !event) {
         return (
-            <main>
-                <p role="alert">
-                    {error}
-                </p>
+            <main className="event-details-page">
+                <div
+                    className="event-details-status event-details-error"
+                    role="alert"
+                >
+                    <h1>
+                        Evento indisponível
+                    </h1>
 
-                <Link to="/eventos">
-                    Voltar para eventos
-                </Link>
+                    <p>
+                        {error ||
+                            "Não foi possível encontrar este evento."}
+                    </p>
+
+                    <Link to="/eventos">
+                        Voltar para eventos
+                    </Link>
+                </div>
             </main>
         );
     }
+
+    const hasSectors =
+        Array.isArray(
+            event.sectors
+        ) &&
+        event.sectors.length > 0;
 
     return (
         <main className="event-details-page">
@@ -120,24 +138,29 @@ export default function EventDetailsPage() {
                             alt={`Imagem do evento ${event.title}`}
                         />
                     ) : (
-                        <span>
-                            {
-                                event
-                                    .categoryTemplate
-                                    ?.name
-                            }
-                        </span>
+                        <div
+                            className="event-details-placeholder"
+                            aria-hidden="true"
+                        >
+                            <span>
+                                Boraí
+                            </span>
+                        </div>
                     )}
                 </div>
 
                 <div className="event-details-info">
-                    <p className="event-details-category">
-                        {
-                            event
-                                .categoryTemplate
-                                ?.name
-                        }
-                    </p>
+                    {event
+                        .categoryTemplate
+                        ?.name && (
+                            <p className="event-details-category">
+                                {
+                                    event
+                                        .categoryTemplate
+                                        .name
+                                }
+                            </p>
+                        )}
 
                     <h1>
                         {event.title}
@@ -169,11 +192,17 @@ export default function EventDetailsPage() {
                         </span>
                     </div>
 
-                    {event.description && (
+                    {event.description ? (
                         <p className="event-details-description">
                             {
                                 event.description
                             }
+                        </p>
+                    ) : (
+                        <p className="event-details-description event-details-no-description">
+                            Mais informações sobre
+                            este evento estarão
+                            disponíveis em breve.
                         </p>
                     )}
                 </div>
@@ -192,97 +221,167 @@ export default function EventDetailsPage() {
                     </div>
                 </div>
 
-                <div className="ticket-sector-list">
-                    {event.sectors.map(
-                        (sector) => (
-                            <section
-                                key={
-                                    sector.id
-                                }
-                                className="ticket-sector"
-                            >
-                                <h3>
-                                    {
-                                        sector
-                                            .sectorTemplate
-                                            .name
-                                    }
-                                </h3>
+                {!hasSectors ? (
+                    <div className="tickets-empty">
+                        <h3>
+                            Ingressos ainda não disponíveis
+                        </h3>
 
-                                <div className="ticket-modality-list">
-                                    {sector.modalities.map(
-                                        (
-                                            modality
-                                        ) => (
-                                            <article
-                                                key={
-                                                    modality.id
+                        <p>
+                            As opções de ingresso
+                            para este evento serão
+                            divulgadas em breve.
+                        </p>
+                    </div>
+                ) : (
+                    <div className="ticket-sector-list">
+                        {event.sectors.map(
+                            (sector) => {
+                                const modalities =
+                                    sector.modalities ||
+                                    [];
+
+                                return (
+                                    <section
+                                        key={
+                                            sector.id
+                                        }
+                                        className="ticket-sector"
+                                    >
+                                        <div className="ticket-sector-heading">
+                                            <p>
+                                                Setor
+                                            </p>
+
+                                            <h3>
+                                                {
+                                                    sector
+                                                        .sectorTemplate
+                                                        ?.name
                                                 }
-                                                className="ticket-modality"
-                                            >
-                                                <h4>
-                                                    {
-                                                        modality
-                                                            .modalityTemplate
-                                                            .name
-                                                    }
-                                                </h4>
+                                            </h3>
+                                        </div>
 
-                                                {modality.batches.map(
+                                        {modalities.length ===
+                                            0 ? (
+                                            <p className="ticket-unavailable">
+                                                Nenhuma
+                                                modalidade
+                                                disponível
+                                                neste setor.
+                                            </p>
+                                        ) : (
+                                            <div className="ticket-modality-list">
+                                                {modalities.map(
                                                     (
-                                                        batch
-                                                    ) => (
-                                                        <div
-                                                            key={
-                                                                batch.id
-                                                            }
-                                                            className="ticket-batch"
-                                                        >
-                                                            <strong>
-                                                                {
-                                                                    batch.name
+                                                        modality
+                                                    ) => {
+                                                        const batches =
+                                                            modality.batches ||
+                                                            [];
+
+                                                        return (
+                                                            <article
+                                                                key={
+                                                                    modality.id
                                                                 }
-                                                            </strong>
+                                                                className="ticket-modality"
+                                                            >
+                                                                <h4>
+                                                                    {
+                                                                        modality
+                                                                            .modalityTemplate
+                                                                            ?.name
+                                                                    }
+                                                                </h4>
 
-                                                            <ul>
-                                                                {batch.prices.map(
-                                                                    (
-                                                                        price
-                                                                    ) => (
-                                                                        <li
-                                                                            key={
-                                                                                price.id
-                                                                            }
-                                                                        >
-                                                                            <span>
-                                                                                {
-                                                                                    price
-                                                                                        .eventTicketCategory
-                                                                                        .priceCategoryTemplate
-                                                                                        .name
-                                                                                }
-                                                                            </span>
+                                                                {batches.length ===
+                                                                    0 ? (
+                                                                    <p className="ticket-unavailable">
+                                                                        Lotes
+                                                                        ainda
+                                                                        não
+                                                                        disponíveis.
+                                                                    </p>
+                                                                ) : (
+                                                                    batches.map(
+                                                                        (
+                                                                            batch
+                                                                        ) => {
+                                                                            const prices =
+                                                                                batch.prices ||
+                                                                                [];
 
-                                                                            <strong>
-                                                                                {formatCurrency(
-                                                                                    price.priceInCents
-                                                                                )}
-                                                                            </strong>
-                                                                        </li>
+                                                                            return (
+                                                                                <div
+                                                                                    key={
+                                                                                        batch.id
+                                                                                    }
+                                                                                    className="ticket-batch"
+                                                                                >
+                                                                                    <div className="ticket-batch-heading">
+                                                                                        <strong>
+                                                                                            {
+                                                                                                batch.name
+                                                                                            }
+                                                                                        </strong>
+                                                                                    </div>
+
+                                                                                    {prices.length ===
+                                                                                        0 ? (
+                                                                                        <p className="ticket-unavailable">
+                                                                                            Preços
+                                                                                            ainda
+                                                                                            não
+                                                                                            disponíveis.
+                                                                                        </p>
+                                                                                    ) : (
+                                                                                        <ul>
+                                                                                            {prices.map(
+                                                                                                (
+                                                                                                    price
+                                                                                                ) => (
+                                                                                                    <li
+                                                                                                        key={
+                                                                                                            price.id
+                                                                                                        }
+                                                                                                    >
+                                                                                                        <span>
+                                                                                                            {
+                                                                                                                price
+                                                                                                                    .eventTicketCategory
+                                                                                                                    ?.priceCategoryTemplate
+                                                                                                                    ?.name
+                                                                                                            }
+                                                                                                        </span>
+
+                                                                                                        <strong>
+                                                                                                            {formatCurrency(
+                                                                                                                price.priceInCents
+                                                                                                            )}
+                                                                                                        </strong>
+                                                                                                    </li>
+                                                                                                )
+                                                                                            )}
+                                                                                        </ul>
+                                                                                    )}
+                                                                                </div>
+                                                                            );
+                                                                        }
                                                                     )
                                                                 )}
-                                                            </ul>
-                                                        </div>
-                                                    )
+                                                            </article>
+                                                        );
+                                                    }
                                                 )}
-                                            </article>
-                                        )
-                                    )}
-                                </div>
-                            </section>
-                        )
-                    )}
-                </div>
+                                            </div>
+                                        )}
+                                    </section>
+                                );
+                            }
+                        )}
+                    </div>
+                )}
             </section>
         </main>
     );

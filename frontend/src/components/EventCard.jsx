@@ -24,55 +24,59 @@ export default function EventCard({
 
     return (
         <article className="event-card">
-            <div className="event-card-image">
-                {event.imageUrl ? (
-                    <img
-                        src={event.imageUrl}
-                        alt={`Imagem do evento ${event.title}`}
-                    />
-                ) : (
-                    <div
-                        className="event-card-placeholder"
-                        aria-hidden="true"
-                    >
-                        <span className="event-card-placeholder-brand">
-                            Boraí
-                        </span>
-                    </div>
-                )}
-            </div>
-
-            <div className="event-card-content">
-                <p className="event-card-category">
-                    {categoryName}
-                </p>
-
-                <h2>
-                    {event.title}
-                </h2>
-
-                <p className="event-card-date">
-                    {formatEventDate(
-                        event.dateTime
+            <Link
+                to={`/eventos/${event.id}`}
+                className="event-card-link"
+                aria-label={`Ver evento ${event.title}`}
+            >
+                <div className="event-card-image">
+                    {event.imageUrl ? (
+                        <img
+                            src={event.imageUrl}
+                            alt={`Imagem do evento ${event.title}`}
+                        />
+                    ) : (
+                        <div
+                            className="event-card-placeholder"
+                            aria-hidden="true"
+                        >
+                            <span className="event-card-placeholder-brand">
+                                Boraí
+                            </span>
+                        </div>
                     )}
-                </p>
+                </div>
 
-                <p className="event-card-location">
-                    {event.venueName &&
-                        `${event.venueName} — `}
+                <div className="event-card-content">
+                    <p className="event-card-category">
+                        {categoryName}
+                    </p>
 
-                    {event.city}
+                    <h2>
+                        {event.title}
+                    </h2>
 
-                    {event.state &&
-                        `/${event.state}`}
-                </p>
+                    <p className="event-card-date">
+                        {formatEventDate(
+                            event.dateTime
+                        )}
+                    </p>
 
-                <Link
-                    to={`/eventos/${event.id}`}
-                >
-                    Ver evento
-                </Link>
-            </div>
+                    <p className="event-card-location">
+                        {event.venueName &&
+                            `${event.venueName} — `}
+
+                        {event.city}
+
+                        {event.state &&
+                            `/${event.state}`}
+                    </p>
+
+                    <span className="event-card-action">
+                        Ver evento
+                    </span>
+                </div>
+            </Link>
         </article>
     );
 }

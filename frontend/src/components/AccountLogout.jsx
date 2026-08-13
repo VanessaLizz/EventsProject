@@ -4,7 +4,7 @@ import {
 
 import {
     useAuth,
-} from "../contexts/AuthContext.jsx";
+} from "../contexts/authContext.js";
 
 export default function AccountLogout() {
     const navigate =

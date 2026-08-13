@@ -1,4 +1,4 @@
-import {
+﻿import {
     useEffect,
     useMemo,
     useState,
@@ -41,11 +41,6 @@ export default function EventsPage() {
     const [searchParams] =
         useSearchParams();
 
-    const initialCategory =
-        searchParams.get(
-            "categoria"
-        ) || "";
-
     const [events, setEvents] =
         useState([]);
 
@@ -53,7 +48,11 @@ export default function EventsPage() {
         useState("");
 
     const [category, setCategory] =
-        useState(initialCategory);
+        useState(
+            searchParams.get(
+                "categoria"
+            ) || ""
+        );
 
     const [city, setCity] =
         useState("");
@@ -91,14 +90,6 @@ export default function EventsPage() {
 
         loadEvents();
     }, []);
-
-    useEffect(() => {
-        setCategory(
-            searchParams.get(
-                "categoria"
-            ) || ""
-        );
-    }, [searchParams]);
 
     const categories =
         useMemo(() => {

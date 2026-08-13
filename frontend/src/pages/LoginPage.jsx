@@ -1,4 +1,4 @@
-import {
+﻿import {
     useState,
 } from "react";
 
@@ -10,7 +10,7 @@ import {
 
 import {
     useAuth,
-} from "../contexts/AuthContext.jsx";
+} from "../contexts/authContext.js";
 
 const ROLE_HOME = {
     CLIENT: "/cliente",

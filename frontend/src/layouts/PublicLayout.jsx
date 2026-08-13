@@ -1,4 +1,4 @@
-import {
+﻿import {
     Link,
     NavLink,
     Outlet,
@@ -7,7 +7,7 @@ import {
 
 import {
     useAuth,
-} from "../contexts/AuthContext.jsx";
+} from "../contexts/authContext.js";
 
 const ROLE_LINKS = {
     CLIENT: {

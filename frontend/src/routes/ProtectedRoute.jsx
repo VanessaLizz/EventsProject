@@ -1,4 +1,4 @@
-import {
+﻿import {
     Navigate,
     Outlet,
     useLocation,
@@ -6,7 +6,7 @@ import {
 
 import {
     useAuth,
-} from "../contexts/AuthContext.jsx";
+} from "../contexts/authContext.js";
 
 export default function ProtectedRoute({
     allowedRoles,

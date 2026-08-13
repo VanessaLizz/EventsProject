@@ -4,7 +4,7 @@ import {
 
 import {
     useAuth,
-} from "../contexts/AuthContext.jsx";
+} from "../contexts/authContext.js";
 
 import AccountLogout from "../components/AccountLogout.jsx";
 

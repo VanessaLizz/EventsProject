@@ -1,6 +1,4 @@
-import {
-    createContext,
-    useContext,
+﻿import {
     useMemo,
     useState,
 } from "react";
@@ -9,8 +7,9 @@ import {
     login as loginRequest,
 } from "../services/authService.js";
 
-const AuthContext =
-    createContext(null);
+import {
+    AuthContext,
+} from "./authContext.js";
 
 const STORAGE_KEY =
     "borai_auth";
@@ -156,19 +155,4 @@ export function AuthProvider({
             {children}
         </AuthContext.Provider>
     );
-}
-
-export function useAuth() {
-    const context =
-        useContext(
-            AuthContext
-        );
-
-    if (!context) {
-        throw new Error(
-            "useAuth deve ser utilizado dentro de AuthProvider."
-        );
-    }
-
-    return context;
 }

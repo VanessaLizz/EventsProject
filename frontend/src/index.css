@@ -1776,4 +1776,169 @@ main form button[type="submit"]:hover {
       gap: 14px;
     }
   }
+
+  /* ======================================================
+   CATÁLOGO — ACABAMENTO
+   ====================================================== */
+
+  .events-page {
+    padding-top: 52px;
+  }
+
+  .events-heading {
+    margin-bottom: 30px;
+  }
+
+  .events-eyebrow {
+    margin-bottom: 6px;
+
+    color: var(--pink);
+
+    font-size: 0.8rem;
+    font-weight: 800;
+
+    letter-spacing: 0.08em;
+
+    text-transform: uppercase;
+  }
+
+  .events-heading h1 {
+    margin-bottom: 10px;
+  }
+
+  .events-intro {
+    max-width: 620px;
+
+    color: var(--text-soft);
+  }
+
+  .event-filters {
+    margin-bottom: 20px;
+  }
+
+  .catalog-summary {
+    min-height: 38px;
+
+    margin-bottom: 8px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 16px;
+  }
+
+  .catalog-summary p {
+    color: var(--text-soft);
+
+    font-size: 0.9rem;
+  }
+
+  .catalog-summary strong {
+    color: var(--green-dark);
+  }
+
+  .catalog-summary span {
+    padding: 5px 10px;
+
+    border-radius: 999px;
+
+    background:
+      rgba(201, 123, 165, 0.14);
+
+    color: var(--purple);
+
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
+
+  .clear-filters {
+    align-self: end;
+  }
+
+  .catalog-empty {
+    margin-top: 24px;
+
+    padding: 60px 30px;
+
+    border:
+      1px solid var(--border);
+
+    border-radius: 14px;
+
+    background: var(--surface);
+
+    text-align: center;
+  }
+
+  .catalog-empty h2 {
+    margin-bottom: 8px;
+  }
+
+  .catalog-empty p {
+    margin-bottom: 22px;
+
+    color: var(--text-soft);
+  }
+
+  .catalog-empty button {
+    min-height: 42px;
+
+    padding: 9px 18px;
+
+    border: 0;
+
+    border-radius: 8px;
+
+    background: var(--green-dark);
+
+    color: #ffffff;
+
+    font-weight: 700;
+  }
+
+  .catalog-empty button:hover {
+    background: var(--blue);
+  }
+
+  .catalog-status {
+    margin-top: 40px;
+
+    padding: 40px;
+
+    border:
+      1px solid var(--border);
+
+    border-radius: 14px;
+
+    background: var(--surface);
+
+    text-align: center;
+  }
+
+  .catalog-error {
+    border-color:
+      rgba(230, 84, 107, 0.3);
+
+    background:
+      rgba(230, 84, 107, 0.06);
+  }
+
+  @media (max-width: 640px) {
+    .events-page {
+      padding-top: 32px;
+    }
+
+    .catalog-summary {
+      align-items: flex-start;
+
+      flex-direction: column;
+
+      gap: 6px;
+    }
+
+    .catalog-empty {
+      padding: 42px 20px;
+    }
+  }
 }

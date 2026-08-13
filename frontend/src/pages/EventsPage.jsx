@@ -53,9 +53,7 @@ export default function EventsPage() {
         useState("");
 
     const [category, setCategory] =
-        useState(
-            initialCategory
-        );
+        useState(initialCategory);
 
     const [city, setCity] =
         useState("");
@@ -236,46 +234,74 @@ export default function EventsPage() {
     }
 
     const hasFilters =
-        search ||
-        category ||
-        city ||
-        month ||
-        year;
+        Boolean(
+            search ||
+            category ||
+            city ||
+            month ||
+            year
+        );
 
     if (isLoading) {
         return (
-            <main>
-                <p>
-                    Carregando eventos...
-                </p>
+            <main className="events-page">
+                <div className="catalog-status">
+                    <p>
+                        Carregando eventos...
+                    </p>
+                </div>
             </main>
         );
     }
 
     if (error) {
         return (
-            <main>
-                <h1>
-                    Eventos
-                </h1>
+            <main className="events-page">
+                <div className="events-heading">
+                    <p className="events-eyebrow">
+                        Descubra
+                    </p>
 
-                <p role="alert">
-                    {error}
-                </p>
+                    <h1>
+                        Eventos
+                    </h1>
+                </div>
+
+                <div
+                    className="catalog-status catalog-error"
+                    role="alert"
+                >
+                    <p>
+                        {error}
+                    </p>
+                </div>
             </main>
         );
     }
 
     return (
-        <main>
-            <h1>
-                Eventos
-            </h1>
+        <main className="events-page">
+            <div className="events-heading">
+                <p className="events-eyebrow">
+                    Encontre sua próxima experiência
+                </p>
+
+                <h1>
+                    Eventos
+                </h1>
+
+                <p className="events-intro">
+                    Explore os eventos disponíveis
+                    e encontre o que combina com
+                    você.
+                </p>
+            </div>
 
             <section
+                className="event-filters"
                 aria-label="Filtros de eventos"
             >
-                <div>
+                <div className="event-filter-search">
                     <label htmlFor="event-search">
                         Buscar eventos
                     </label>
@@ -447,6 +473,7 @@ export default function EventsPage() {
                 {hasFilters && (
                     <button
                         type="button"
+                        className="clear-filters"
                         onClick={
                             clearFilters
                         }
@@ -456,17 +483,47 @@ export default function EventsPage() {
                 )}
             </section>
 
-            <p>
-                {filteredEvents.length}{" "}
-                {filteredEvents.length === 1
-                    ? "evento encontrado"
-                    : "eventos encontrados"}
-            </p>
+            <div className="catalog-summary">
+                <p>
+                    <strong>
+                        {
+                            filteredEvents.length
+                        }
+                    </strong>{" "}
+                    {filteredEvents.length === 1
+                        ? "evento encontrado"
+                        : "eventos encontrados"}
+                </p>
+
+                {hasFilters && (
+                    <span>
+                        Filtros ativos
+                    </span>
+                )}
+            </div>
 
             {filteredEvents.length === 0 ? (
-                <p>
-                    Nenhum evento encontrado.
-                </p>
+                <section className="catalog-empty">
+                    <h2>
+                        Nenhum evento encontrado
+                    </h2>
+
+                    <p>
+                        Tente alterar ou remover
+                        alguns dos filtros.
+                    </p>
+
+                    {hasFilters && (
+                        <button
+                            type="button"
+                            onClick={
+                                clearFilters
+                            }
+                        >
+                            Limpar todos os filtros
+                        </button>
+                    )}
+                </section>
             ) : (
                 <section className="event-grid">
                     {filteredEvents.map(

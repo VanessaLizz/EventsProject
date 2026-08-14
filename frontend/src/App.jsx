@@ -16,6 +16,7 @@ import OrganizerPage from "./pages/OrganizerPage.jsx";
 import OrganizerEventFormPage from "./pages/OrganizerEventFormPage.jsx";
 import OrganizerEventConfigurationPage from "./pages/OrganizerEventConfigurationPage.jsx";
 import OrganizerEventMetricsPage from "./pages/OrganizerEventMetricsPage.jsx";
+import OrganizerExternalCatalogPage from "./pages/OrganizerExternalCatalogPage.jsx";
 import CheckinPage from "./pages/CheckinPage.jsx";
 import NotFoundPage from "./pages/NotFoundPage.jsx";
 
@@ -107,6 +108,13 @@ export default function App() {
           path="/organizador/eventos/novo"
           element={
             <OrganizerEventFormPage />
+          }
+        />
+
+        <Route
+          path="/organizador/eventos/importar"
+          element={
+            <OrganizerExternalCatalogPage />
           }
         />
 

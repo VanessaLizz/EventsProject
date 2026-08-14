@@ -1265,6 +1265,131 @@ select:focus {
 }
 
 /* ======================================================
+   PAGINAÇÃO DO CATÁLOGO
+   ====================================================== */
+
+.catalog-summary > div {
+  display: flex;
+  flex-direction: column;
+
+  gap: 2px;
+}
+
+.catalog-summary p {
+  margin: 0;
+}
+
+.catalog-summary small {
+  color: var(--text-soft);
+
+  font-size: 0.78rem;
+}
+
+.catalog-pagination {
+  margin-top: 36px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  gap: 14px;
+}
+
+.catalog-pagination-pages {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  gap: 8px;
+}
+
+.catalog-pagination-button,
+.catalog-pagination-number {
+  min-height: 42px;
+
+  border:
+    1px solid var(--border);
+
+  border-radius: 8px;
+
+  background: var(--surface);
+
+  color: var(--text);
+
+  font-weight: 700;
+
+  transition:
+    border-color 0.2s,
+    background 0.2s,
+    color 0.2s,
+    transform 0.2s;
+}
+
+.catalog-pagination-button {
+  padding: 9px 16px;
+}
+
+.catalog-pagination-number {
+  min-width: 42px;
+
+  padding: 9px 12px;
+}
+
+.catalog-pagination-button:hover:not(:disabled),
+.catalog-pagination-number:hover {
+  border-color: var(--purple);
+
+  color: var(--purple);
+
+  transform: translateY(-1px);
+}
+
+.catalog-pagination-number-active,
+.catalog-pagination-number-active:hover {
+  border-color: var(--purple);
+
+  background: var(--purple);
+
+  color: #ffffff;
+
+  transform: none;
+}
+
+.catalog-pagination-button:disabled {
+  opacity: 0.45;
+
+  cursor: not-allowed;
+}
+
+.catalog-pagination-button:focus-visible,
+.catalog-pagination-number:focus-visible {
+  outline:
+    3px solid rgba(201, 123, 165, 0.2);
+
+  outline-offset: 2px;
+}
+
+@media (max-width: 640px) {
+  .catalog-pagination {
+    align-items: stretch;
+
+    flex-direction: column;
+
+    gap: 10px;
+  }
+
+  .catalog-pagination-pages {
+    flex-wrap: wrap;
+
+    order: -1;
+  }
+
+  .catalog-pagination-button {
+    width: 100%;
+  }
+}
+
+/* ======================================================
    LOGIN E FORMULÁRIOS
    ====================================================== */
 
@@ -2684,4 +2809,596 @@ main form button[type="submit"]:disabled {
   object-position: center;
 
   display: block;
+}
+
+/* ======================================================
+   ETAPA 10 — ABAS DOS EVENTOS DO ORGANIZADOR
+   ====================================================== */
+
+.organizer-event-tabs {
+  margin-bottom: 24px;
+
+  display: flex;
+  align-items: center;
+
+  gap: 10px;
+
+  border-bottom:
+    1px solid var(--border);
+}
+
+.organizer-event-tab {
+  min-height: 46px;
+
+  padding: 10px 18px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  gap: 9px;
+
+  border: 0;
+  border-bottom:
+    3px solid transparent;
+
+  background: transparent;
+
+  color: var(--text-soft);
+
+  font-weight: 800;
+}
+
+.organizer-event-tab:hover {
+  color: var(--purple);
+}
+
+.organizer-event-tab-active {
+  border-bottom-color:
+    var(--purple);
+
+  color: var(--purple);
+}
+
+.organizer-event-tab span {
+  min-width: 24px;
+  height: 24px;
+
+  padding: 0 7px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 999px;
+
+  background:
+    rgba(201, 123, 165, 0.14);
+
+  color: var(--purple);
+
+  font-size: 0.72rem;
+}
+
+.organizer-event-tab-active span {
+  background:
+    var(--purple);
+
+  color: #ffffff;
+}
+
+.organizer-tab-empty {
+  margin-top: 8px;
+}
+
+@media (max-width: 520px) {
+  .organizer-event-tabs {
+    width: 100%;
+  }
+
+  .organizer-event-tab {
+    flex: 1;
+
+    padding-right: 10px;
+    padding-left: 10px;
+  }
+}
+
+/* ======================================================
+   ETAPA 10 — DASHBOARD GERAL DO ORGANIZADOR
+   ====================================================== */
+
+.organizer-overview {
+  margin-bottom: 38px;
+
+  padding: 26px;
+
+  border: 1px solid var(--border);
+  border-radius: 16px;
+
+  background: var(--surface);
+
+  box-shadow: var(--shadow-sm);
+}
+
+.organizer-overview-heading {
+  margin-bottom: 24px;
+
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+
+  gap: 24px;
+}
+
+.organizer-overview-heading h2 {
+  margin-bottom: 7px;
+}
+
+.organizer-overview-heading p:last-child {
+  margin: 0;
+
+  color: var(--text-soft);
+}
+
+.organizer-overview-kpis {
+  margin-bottom: 26px;
+
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      5,
+      minmax(0, 1fr)
+    );
+
+  gap: 12px;
+}
+
+.organizer-overview-kpis article {
+  min-width: 0;
+
+  padding: 18px;
+
+  border:
+    1px solid var(--border);
+
+  border-radius: 12px;
+
+  background:
+    var(--background);
+}
+
+.organizer-overview-kpis span {
+  display: block;
+
+  margin-bottom: 9px;
+
+  color: var(--text-soft);
+
+  font-size: 0.68rem;
+  font-weight: 800;
+
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.organizer-overview-kpis strong {
+  display: block;
+
+  margin-bottom: 5px;
+
+  font-size:
+    clamp(
+      1.15rem,
+      2vw,
+      1.55rem
+    );
+
+  overflow-wrap: anywhere;
+}
+
+.organizer-overview-kpis small {
+  color: var(--text-soft);
+
+  font-size: 0.68rem;
+}
+
+.organizer-category-dashboard {
+  padding: 22px;
+
+  border:
+    1px solid var(--border);
+
+  border-radius: 14px;
+
+  background: var(--background);
+}
+
+.organizer-category-dashboard-heading {
+  margin-bottom: 24px;
+
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+
+  gap: 20px;
+}
+
+.organizer-category-dashboard-heading h3 {
+  margin: 0;
+}
+
+.organizer-category-dashboard-heading > span {
+  color: var(--text-soft);
+
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.organizer-category-chart {
+  display: grid;
+
+  gap: 22px;
+}
+
+.organizer-category-chart-row {
+  display: grid;
+
+  gap: 8px;
+}
+
+.organizer-category-chart-info {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+
+  gap: 18px;
+}
+
+.organizer-category-chart-info > div:first-child {
+  min-width: 0;
+
+  display: flex;
+  flex-direction: column;
+
+  gap: 3px;
+}
+
+.organizer-category-chart-info strong {
+  font-size: 0.82rem;
+}
+
+.organizer-category-chart-info span {
+  color: var(--text-soft);
+
+  font-size: 0.68rem;
+}
+
+.organizer-category-chart-values {
+  display: flex;
+  align-items: center;
+
+  gap: 10px;
+}
+
+.organizer-category-chart-values strong {
+  font-size: 1rem;
+}
+
+.organizer-category-chart-values span {
+  min-width: 38px;
+
+  padding: 3px 7px;
+
+  border-radius: 999px;
+
+  background:
+    rgba(201, 123, 165, 0.14);
+
+  color: var(--purple);
+
+  font-weight: 800;
+  text-align: center;
+}
+
+.organizer-category-chart-track {
+  height: 18px;
+
+  overflow: hidden;
+
+  border-radius: 999px;
+
+  background:
+    rgba(201, 123, 165, 0.12);
+}
+
+.organizer-category-chart-fill {
+  min-width: 3px;
+  height: 100%;
+
+  border-radius: inherit;
+
+  background:
+    linear-gradient(
+      90deg,
+      var(--purple),
+      var(--pink)
+    );
+
+  transition:
+    width 0.3s ease;
+}
+
+.organizer-category-chart-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 16px;
+}
+
+.organizer-category-chart-footer span {
+  color: var(--text-soft);
+
+  font-size: 0.68rem;
+}
+
+.organizer-category-chart-footer strong {
+  font-size: 0.75rem;
+}
+
+.organizer-category-empty {
+  min-height: 150px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  color: var(--text-soft);
+
+  font-size: 0.82rem;
+}
+
+@media (max-width: 1050px) {
+  .organizer-overview-kpis {
+    grid-template-columns:
+      repeat(
+        3,
+        minmax(0, 1fr)
+      );
+  }
+}
+
+@media (max-width: 700px) {
+  .organizer-overview {
+    padding: 18px;
+  }
+
+  .organizer-overview-kpis {
+    grid-template-columns:
+      repeat(
+        2,
+        minmax(0, 1fr)
+      );
+  }
+
+  .organizer-category-dashboard {
+    padding: 17px;
+  }
+}
+
+@media (max-width: 480px) {
+  .organizer-overview-kpis {
+    grid-template-columns: 1fr;
+  }
+
+  .organizer-category-dashboard-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+/* ======================================================
+   ETAPA 10 — FILTROS DO DASHBOARD GERAL
+   ====================================================== */
+
+.organizer-overview-filters {
+  margin-bottom: 14px;
+
+  padding: 18px;
+
+  display: grid;
+
+  grid-template-columns:
+    repeat(3, minmax(0, 1fr))
+    auto;
+
+  gap: 14px;
+
+  align-items: end;
+
+  border:
+    1px solid var(--border);
+
+  border-radius: 12px;
+
+  background: var(--background);
+}
+
+.organizer-overview-filters label {
+  min-width: 0;
+
+  display: flex;
+  flex-direction: column;
+
+  gap: 7px;
+}
+
+.organizer-overview-filters label > span {
+  color: var(--text-soft);
+
+  font-size: 0.7rem;
+  font-weight: 800;
+
+  letter-spacing: 0.05em;
+
+  text-transform: uppercase;
+}
+
+.organizer-overview-filters select {
+  width: 100%;
+  min-height: 44px;
+
+  padding:
+    9px
+    36px
+    9px
+    12px;
+
+  border:
+    1px solid var(--border);
+
+  border-radius: 8px;
+
+  background-color: var(--surface);
+
+  color: var(--text);
+
+  font-size: 0.86rem;
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s,
+    background 0.2s;
+}
+
+.organizer-overview-filters select:hover {
+  border-color: var(--purple);
+}
+
+.organizer-overview-filters select:focus {
+  outline: none;
+
+  border-color: var(--purple);
+
+  box-shadow:
+    0 0 0 3px
+    rgba(201, 123, 165, 0.14);
+}
+
+.organizer-overview-clear-button {
+  min-width: 130px;
+  min-height: 44px;
+
+  margin: 0;
+
+  padding:
+    10px
+    16px;
+
+  border:
+    1px solid var(--border);
+
+  border-radius: 8px;
+
+  background: var(--surface);
+
+  color: var(--purple);
+
+  font-size: 0.82rem;
+  font-weight: 800;
+
+  cursor: pointer;
+
+  transition:
+    border-color 0.2s,
+    background 0.2s,
+    color 0.2s,
+    transform 0.2s;
+}
+
+.organizer-overview-clear-button:hover:not(:disabled) {
+  border-color: var(--purple);
+
+  background:
+    rgba(201, 123, 165, 0.1);
+
+  color: var(--purple);
+
+  transform:
+    translateY(-1px);
+}
+
+.organizer-overview-clear-button:disabled {
+  opacity: 0.45;
+
+  cursor: not-allowed;
+
+  transform: none;
+}
+
+.organizer-overview-filter-summary {
+  margin-bottom: 22px;
+
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.organizer-overview-filter-summary span {
+  padding:
+    5px
+    10px;
+
+  border-radius: 999px;
+
+  background:
+    rgba(201, 123, 165, 0.12);
+
+  color: var(--purple);
+
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+/* ======================================================
+   FILTROS — TABLET
+   ====================================================== */
+
+@media (max-width: 950px) {
+  .organizer-overview-filters {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+  }
+
+  .organizer-overview-clear-button {
+    width: 100%;
+  }
+}
+
+/* ======================================================
+   FILTROS — CELULAR
+   ====================================================== */
+
+@media (max-width: 600px) {
+  .organizer-overview-filters {
+    padding: 14px;
+
+    grid-template-columns:
+      1fr;
+
+    gap: 12px;
+  }
+
+  .organizer-overview-clear-button {
+    width: 100%;
+  }
+
+  .organizer-overview-filter-summary {
+    justify-content: flex-start;
+  }
 }

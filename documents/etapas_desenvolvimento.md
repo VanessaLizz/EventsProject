@@ -7082,3 +7082,1133 @@ build aprovado
 A área /organizador está preparada para receber o módulo completo de
 criação e gerenciamento de eventos da Etapa 6.
 
+---
+
+# [Etapa 6] Front-End: Módulo de Organização & Criação de Eventos
+
+**Status:** Concluído
+
+## Objetivo da Etapa
+
+Implementar o módulo de gerenciamento de eventos do perfil `ORGANIZER`, permitindo que o Organizador crie, edite, configure e publique seus próprios eventos através do Front-End.
+
+A etapa também integrou a interface às estruturas flexíveis de eventos e ingressos desenvolvidas anteriormente no Back-End.
+
+O fluxo passou a permitir:
+
+- visualizar os eventos pertencentes ao Organizador;
+- criar novos eventos;
+- editar eventos em rascunho;
+- configurar setores;
+- configurar modalidades;
+- definir o modo de ocupação;
+- configurar categorias de preço;
+- criar múltiplos lotes;
+- definir preços por categoria em cada lote;
+- gerar assentos para modalidades `SEAT`;
+- acompanhar a utilização das capacidades configuradas;
+- remover configurações criadas;
+- validar a configuração antes da publicação;
+- publicar o evento;
+- visualizar as pendências que impedem sua publicação.
+
+A Etapa 6 concentrou-se no gerenciamento do evento pelo Organizador.
+
+As funcionalidades de seleção de ingressos e checkout através da interface permanecem destinadas à etapa seguinte.
+
+---
+
+# 1. Painel do Organizador
+
+A área:
+
+```text
+/organizador
+```
+
+foi ampliada para funcionar como painel de gerenciamento dos eventos pertencentes ao usuário autenticado com perfil:
+
+```text
+ORGANIZER
+```
+
+A página passou a carregar os eventos do próprio Organizador através do Back-End.
+
+Cada evento é apresentado individualmente no painel.
+
+---
+
+# 2. Listagem dos eventos do Organizador
+
+Foi utilizada a rota protegida:
+
+```text
+GET /events/organizer/mine
+```
+
+A requisição exige:
+
+```text
+authenticate
+authorize("ORGANIZER")
+```
+
+Dessa forma, o Organizador visualiza apenas os eventos associados à própria conta.
+
+---
+
+# 3. Informações apresentadas no painel
+
+Os cards dos eventos apresentam informações como:
+
+```text
+título
+categoria
+data e horário
+local
+cidade
+estado
+capacidade
+status
+```
+
+Os status são apresentados ao usuário em português.
+
+Exemplo:
+
+```text
+DRAFT
+→ Rascunho
+
+PUBLISHED
+→ Publicado
+
+CANCELLED
+→ Cancelado
+```
+
+---
+
+# 4. Estado vazio do painel
+
+Quando o Organizador ainda não possui eventos, a interface apresenta uma mensagem específica orientando a criação do primeiro evento.
+
+Também é disponibilizada a ação:
+
+```text
++ Criar evento
+```
+
+---
+
+# 5. Criação de eventos
+
+Foi implementada a página de formulário utilizada para criação de novos eventos.
+
+A rota de criação utiliza:
+
+```text
+POST /events/organizer
+```
+
+protegida por:
+
+```text
+authenticate
+authorize("ORGANIZER")
+```
+
+O evento criado pertence automaticamente ao Organizador autenticado.
+
+---
+
+# 6. Formulário do evento
+
+O Organizador pode informar os dados principais necessários ao evento.
+
+Entre eles:
+
+```text
+título
+descrição
+categoria
+data e horário
+local
+endereço
+cidade
+estado
+capacidade
+imagem
+```
+
+A capacidade informada representa o limite físico máximo do evento e é utilizada posteriormente nas validações das configurações internas.
+
+---
+
+# 7. Eventos criados inicialmente como rascunho
+
+Novos eventos são mantidos inicialmente no estado:
+
+```text
+DRAFT
+```
+
+Isso permite que o Organizador configure toda a estrutura comercial antes de disponibilizar o evento publicamente.
+
+O evento não precisa estar completamente configurado no momento da criação.
+
+---
+
+# 8. Edição dos dados do evento
+
+Foi implementada a edição dos eventos pertencentes ao Organizador.
+
+A rota utilizada é:
+
+```text
+PUT /events/organizer/:eventId
+```
+
+A operação exige autenticação e perfil `ORGANIZER`.
+
+O Back-End também verifica a propriedade do evento antes de permitir alterações.
+
+---
+
+# 9. Página específica de configuração
+
+Foi criada uma página exclusiva para configuração da estrutura de ingressos.
+
+O acesso ocorre através de rota no formato:
+
+```text
+/organizador/eventos/:eventId/configurar
+```
+
+Essa separação evita concentrar os dados básicos do evento e toda a configuração comercial no mesmo formulário.
+
+O fluxo ficou dividido conceitualmente em:
+
+```text
+DADOS DO EVENTO
+        ↓
+CONFIGURAÇÃO DOS INGRESSOS
+        ↓
+PUBLICAÇÃO
+```
+
+---
+
+# 10. Consulta da configuração completa
+
+Foi implementada uma rota específica para recuperar a estrutura configurada pelo Organizador:
+
+```text
+GET /events/organizer/:eventId/configuration
+```
+
+Ela retorna os dados necessários para montar a interface de configuração.
+
+A resposta contempla a hierarquia:
+
+```text
+EVENTO
+   ↓
+SETORES
+   ↓
+MODALIDADES
+   ↓
+CATEGORIAS
+   ↓
+LOTES / PREÇOS
+   ↓
+ASSENTOS
+```
+
+---
+
+# 11. Configuração por etapas visuais
+
+A página de configuração foi organizada visualmente para reduzir a complexidade da estrutura de ingressos.
+
+A configuração segue a hierarquia do modelo de dados, evitando apresentar setores, modalidades, categorias, lotes e assentos como elementos independentes.
+
+Cada configuração fica visualmente associada ao nível imediatamente superior.
+
+---
+
+# 12. Criação de setores
+
+O Organizador pode adicionar setores ao evento.
+
+Foi implementada a rota:
+
+```text
+POST /events/organizer/:eventId/sectors
+```
+
+Cada setor possui sua própria capacidade.
+
+Exemplos possíveis:
+
+```text
+PISTA
+CAMAROTE
+PLATEIA
+CADEIRA SUPERIOR
+CADEIRA INFERIOR
+ENTRADA GERAL
+```
+
+A estrutura utiliza os templates globais definidos anteriormente, mantendo a possibilidade de reutilização dos tipos de setor.
+
+---
+
+# 13. Capacidade dos setores
+
+Cada setor possui:
+
+```text
+capacity
+```
+
+A soma das capacidades configuradas não pode ultrapassar:
+
+```text
+Event.capacity
+```
+
+A interface também passou a apresentar informações de capacidade utilizada, facilitando a visualização do quanto do limite do evento já foi distribuído.
+
+Conceitualmente:
+
+```text
+Capacidade máxima: 1000
+Em uso: 700
+Disponível: 300
+```
+
+---
+
+# 14. Exclusão de setores
+
+Foi implementada:
+
+```text
+DELETE /events/organizer/:eventId/sectors/:sectorId
+```
+
+permitindo remover uma configuração criada enquanto o evento ainda está sendo preparado.
+
+A exclusão respeita as relações internas da configuração.
+
+---
+
+# 15. Configuração de modalidades
+
+Cada setor pode possuir uma ou mais modalidades.
+
+Foi implementada:
+
+```text
+POST /events/organizer/:eventId/sectors/:sectorId/modalities
+```
+
+Exemplo:
+
+```text
+CAMAROTE
+├── NORMAL
+├── OPEN BAR
+├── OPEN FOOD
+└── OPEN BAR + FOOD
+```
+
+A modalidade possui capacidade própria dentro do setor.
+
+---
+
+# 16. Modo de ocupação
+
+Durante a configuração da modalidade, o Organizador define o comportamento dos ingressos.
+
+Os dois modos suportados são:
+
+```text
+QUANTITY
+SEAT
+```
+
+---
+
+# 17. Modalidade `QUANTITY`
+
+`QUANTITY` é utilizada quando a compra depende apenas da quantidade disponível.
+
+Exemplos:
+
+```text
+PISTA
+ENTRADA GERAL
+WORKSHOP
+```
+
+Nesse modo não existe seleção de lugares individuais.
+
+A disponibilidade é controlada pelas capacidades e pelos lotes.
+
+---
+
+# 18. Modalidade `SEAT`
+
+`SEAT` é utilizada quando existem lugares individualmente identificados.
+
+Exemplos:
+
+```text
+CINEMA
+TEATRO
+CADEIRAS NUMERADAS
+```
+
+Nesse modo a configuração pode gerar assentos correspondentes à capacidade definida.
+
+---
+
+# 19. Exclusão de modalidades
+
+Foi implementada:
+
+```text
+DELETE /events/organizer/:eventId/modalities/:modalityId
+```
+
+permitindo remover modalidades criadas durante a configuração do evento.
+
+---
+
+# 20. Categorias de preço
+
+As modalidades podem receber categorias comerciais de ingresso.
+
+Foi implementada:
+
+```text
+POST /events/organizer/:eventId/modalities/:modalityId/categories
+```
+
+Entre as categorias utilizadas estão:
+
+```text
+INTEIRA
+MEIA
+MEIA SOCIAL
+VALOR UNICO
+```
+
+As categorias não representam estoques independentes.
+
+Elas definem as possibilidades de preço dentro dos lotes da modalidade.
+
+---
+
+# 21. Exclusão de categorias
+
+Foi implementada:
+
+```text
+DELETE /events/organizer/:eventId/modalities/:modalityId/categories/:categoryId
+```
+
+permitindo remover categorias adicionadas durante a configuração.
+
+---
+
+# 22. Configuração dos lotes
+
+Cada modalidade pode possuir múltiplos lotes.
+
+Foi implementada:
+
+```text
+POST /events/organizer/:eventId/modalities/:modalityId/batches
+```
+
+O Organizador informa os dados do lote e os preços correspondentes às categorias configuradas.
+
+Exemplo:
+
+```text
+LOTE 1
+Quantidade: 400
+
+INTEIRA      R$ 220,00
+MEIA         R$ 110,00
+MEIA SOCIAL  R$ 140,00
+```
+
+---
+
+# 23. Múltiplos lotes
+
+Foi validada a criação de mais de um lote para a mesma modalidade.
+
+Exemplo:
+
+```text
+PISTA
+Capacidade: 800
+
+LOTE 1
+Quantidade: 400
+
+LOTE 2
+Quantidade: 400
+```
+
+A soma das quantidades dos lotes deve respeitar a capacidade disponível da modalidade.
+
+---
+
+# 24. Correção na criação de múltiplos lotes
+
+Durante os testes foi identificado erro ao tentar criar lotes posteriores ao primeiro.
+
+A criação do primeiro lote funcionava, mas uma nova criação apresentava erro no Back-End.
+
+O fluxo foi revisado e corrigido para permitir múltiplos lotes na mesma modalidade.
+
+A correção envolveu o tratamento adequado da normalização utilizada na identificação dos lotes, incluindo:
+
+```text
+normalizedName
+```
+
+Após o ajuste, a criação dos lotes seguintes passou a funcionar corretamente.
+
+---
+
+# 25. Preços por categoria
+
+Cada lote pode possuir valores diferentes para cada categoria configurada.
+
+Exemplo:
+
+```text
+LOTE 1
+
+INTEIRA      R$ 100,00
+MEIA         R$ 50,00
+
+LOTE 2
+
+INTEIRA      R$ 120,00
+MEIA         R$ 60,00
+```
+
+Os valores continuam seguindo a regra definida anteriormente de armazenamento monetário em centavos no Back-End.
+
+---
+
+# 26. Exclusão de lotes
+
+Foi implementada:
+
+```text
+DELETE /events/organizer/:eventId/modalities/:modalityId/batches/:batchId
+```
+
+permitindo excluir lotes criados durante a configuração.
+
+---
+
+# 27. Criação de assentos
+
+Para modalidades:
+
+```text
+SEAT
+```
+
+foi implementada a criação dos assentos associados à modalidade.
+
+A rota utilizada é:
+
+```text
+POST /events/organizer/:eventId/modalities/:modalityId/seats
+```
+
+Os assentos ficam vinculados à modalidade correspondente e respeitam sua capacidade.
+
+---
+
+# 28. Exclusão de assentos
+
+Foi implementada:
+
+```text
+DELETE /events/organizer/:eventId/modalities/:modalityId/seats/:seatId
+```
+
+permitindo remover assentos durante a configuração do evento.
+
+---
+
+# 29. Controle hierárquico de capacidade
+
+A interface passou a refletir a hierarquia definida no Back-End:
+
+```text
+EVENTO
+   ↓
+SETOR
+   ↓
+MODALIDADE
+   ↓
+LOTE / ASSENTO
+```
+
+Cada nível deve respeitar o limite disponível no nível superior.
+
+Isso evita configurações como:
+
+```text
+Evento: capacidade 500
+
+Setores:
+Setor A: 400
+Setor B: 300
+```
+
+pois:
+
+```text
+400 + 300 = 700
+```
+
+ultrapassaria a capacidade máxima do evento.
+
+---
+
+# 30. Visualização da capacidade utilizada
+
+A página de configuração foi ajustada para apresentar não apenas a capacidade máxima, mas também quanto dela já está comprometido pelas configurações existentes.
+
+Essa informação foi utilizada principalmente para facilitar o entendimento da distribuição entre setores, modalidades e lotes.
+
+A intenção visual é permitir que o Organizador identifique rapidamente:
+
+```text
+capacidade máxima
+capacidade utilizada
+capacidade restante
+```
+
+sem precisar calcular manualmente os valores.
+
+---
+
+# 31. Reorganização visual da configuração
+
+Durante os testes, a primeira versão da página apresentou excesso de informações simultâneas e dificuldade de identificar a relação entre os elementos.
+
+A interface foi reorganizada para tornar mais clara a sequência:
+
+```text
+SETOR
+   ↓
+MODALIDADE
+   ↓
+CATEGORIAS
+   ↓
+LOTES
+```
+
+Foram utilizados:
+
+- blocos separados;
+- hierarquia visual;
+- informações resumidas de capacidade;
+- agrupamento das ações relacionadas;
+- separação das configurações por modalidade.
+
+---
+
+# 32. Responsividade da página de configuração
+
+A página foi ajustada para diferentes larguras de tela.
+
+Foram tratados principalmente:
+
+- cards;
+- formulários;
+- resumos;
+- grids;
+- cabeçalhos;
+- botões;
+- blocos de configuração.
+
+Em telas menores, os elementos passam a utilizar disposição vertical para evitar cortes e sobreposição de conteúdo.
+
+---
+
+# 33. Correção de carregamento da página
+
+Durante o desenvolvimento ocorreu situação em que a página de configuração permanecia carregando e não era aberta corretamente.
+
+O fluxo de carregamento dos dados e das rotas foi revisado até que a página pudesse recuperar normalmente a configuração do evento.
+
+---
+
+# 34. Correção de arquivo CSS
+
+Durante uma alteração foi identificado erro do Vite/PostCSS:
+
+```text
+Unknown word
+```
+
+O problema ocorreu porque conteúdo que não era CSS havia sido inserido acidentalmente no início de:
+
+```text
+frontend/src/index.css
+```
+
+O conteúdo inválido foi removido e o arquivo restaurado.
+
+Após a correção, o Front-End voltou a ser compilado normalmente.
+
+---
+
+# 35. Serviço de eventos no Front-End
+
+O serviço responsável pelas chamadas relacionadas aos eventos foi ampliado para atender o módulo do Organizador.
+
+As funções passaram a contemplar operações como:
+
+```text
+listar eventos do Organizador
+consultar evento
+criar evento
+editar evento
+consultar configuração
+criar setor
+criar modalidade
+criar categoria
+criar lote
+criar assentos
+excluir configurações
+publicar evento
+```
+
+O token JWT é enviado nas operações protegidas.
+
+---
+
+# 36. Proteção das operações do Organizador
+
+Todas as rotas de gerenciamento permanecem protegidas no Back-End através de:
+
+```text
+authenticate
+authorize("ORGANIZER")
+```
+
+A interface também utiliza o contexto de autenticação para obter:
+
+```text
+user
+token
+```
+
+e realizar as operações correspondentes.
+
+---
+
+# 37. Publicação dentro da página do evento
+
+A publicação foi integrada à própria página de configuração.
+
+Dessa forma, o Organizador não precisa retornar ao panorama geral para descobrir se o evento pode ou não ser publicado.
+
+O fluxo passou a ser:
+
+```text
+Configurar evento
+        ↓
+Verificar pendências
+        ↓
+Corrigir configuração
+        ↓
+Publicar
+```
+
+---
+
+# 38. Validação antes da publicação
+
+Antes de disponibilizar o evento publicamente, a configuração é validada.
+
+Caso existam informações obrigatórias ou configurações incompletas, a página informa as pendências ao Organizador.
+
+O botão de publicação somente deve ser utilizado quando a configuração necessária estiver válida.
+
+---
+
+# 39. Pendências exibidas na própria página
+
+As mensagens relacionadas ao que ainda falta configurar foram colocadas na própria página do evento.
+
+Isso evita obrigar o Organizador a alternar entre:
+
+```text
+painel geral
+↔
+configuração do evento
+```
+
+para descobrir por que a publicação não está disponível.
+
+---
+
+# 40. Publicação do evento
+
+Quando todas as condições necessárias são atendidas, o Organizador pode utilizar:
+
+```text
+Publicar evento
+```
+
+O evento deixa o estado:
+
+```text
+DRAFT
+```
+
+e passa para:
+
+```text
+PUBLISHED
+```
+
+---
+
+# 41. Visualização após publicação
+
+Depois da publicação, a página passa a indicar que o evento está publicado.
+
+Também é disponibilizado acesso para visualizar o evento no catálogo público.
+
+O evento publicado passa a integrar normalmente a experiência pública já construída na Etapa 5.
+
+---
+
+# 42. Proteção da configuração após publicação
+
+Após a publicação, as operações estruturais de configuração deixam de ficar disponíveis no fluxo normal de edição.
+
+Isso reduz o risco de alterar inadvertidamente a estrutura comercial de um evento que já foi disponibilizado ao público.
+
+---
+
+# 43. Preservação do catálogo público
+
+Durante a implementação do módulo do Organizador, o catálogo público desenvolvido anteriormente foi preservado.
+
+Os ajustes da Etapa 6 foram concentrados nas páginas e funcionalidades específicas do Organizador.
+
+A apresentação geral dos eventos e o tratamento visual das imagens permaneceram funcionando após a integração.
+
+---
+
+# 44. Arquivos principais envolvidos
+
+Entre os arquivos criados ou ampliados nesta etapa estão:
+
+```text
+backend/src/controllers/eventController.js
+backend/src/controllers/eventConfigurationController.js
+backend/src/routes/eventRoutes.js
+
+frontend/src/App.jsx
+frontend/src/index.css
+frontend/src/pages/OrganizerPage.jsx
+frontend/src/pages/OrganizerEventFormPage.jsx
+frontend/src/pages/OrganizerEventConfigurationPage.jsx
+frontend/src/pages/OrganizerEventConfigurationPage.css
+frontend/src/services/eventService.js
+```
+
+---
+
+# 45. Controller específico de configuração
+
+Foi criado:
+
+```text
+backend/src/controllers/eventConfigurationController.js
+```
+
+para separar as operações de configuração estrutural das operações gerais do evento.
+
+O controller passou a concentrar funcionalidades relacionadas a:
+
+```text
+configuração
+setores
+modalidades
+categorias
+lotes
+assentos
+exclusões
+```
+
+Essa separação evita concentrar toda a lógica no controller principal de eventos.
+
+---
+
+# 46. Rotas específicas da configuração
+
+As rotas de configuração foram integradas ao conjunto de rotas de eventos.
+
+Entre elas:
+
+```text
+GET    /events/organizer/:eventId/configuration
+
+POST   /events/organizer/:eventId/sectors
+DELETE /events/organizer/:eventId/sectors/:sectorId
+
+POST   /events/organizer/:eventId/sectors/:sectorId/modalities
+DELETE /events/organizer/:eventId/modalities/:modalityId
+
+POST   /events/organizer/:eventId/modalities/:modalityId/categories
+DELETE /events/organizer/:eventId/modalities/:modalityId/categories/:categoryId
+
+POST   /events/organizer/:eventId/modalities/:modalityId/batches
+DELETE /events/organizer/:eventId/modalities/:modalityId/batches/:batchId
+
+POST   /events/organizer/:eventId/modalities/:modalityId/seats
+DELETE /events/organizer/:eventId/modalities/:modalityId/seats/:seatId
+```
+
+As rotas específicas permanecem declaradas antes da rota pública dinâmica:
+
+```text
+/:eventId
+```
+
+evitando que caminhos do Organizador sejam interpretados incorretamente como identificadores de eventos públicos.
+
+---
+
+# 47. Testes realizados
+
+Foram realizados testes manuais do fluxo do Organizador.
+
+Foram validados:
+
+- login com perfil `ORGANIZER`;
+- acesso ao painel;
+- listagem dos eventos do Organizador;
+- abertura de evento existente;
+- criação de novo evento;
+- edição dos dados do evento;
+- abertura da página de configuração;
+- carregamento da configuração;
+- criação de setor;
+- criação de modalidade;
+- escolha entre `QUANTITY` e `SEAT`;
+- criação de categoria;
+- criação do primeiro lote;
+- criação de múltiplos lotes após correção;
+- definição de preços;
+- criação de assentos;
+- exclusão das configurações suportadas;
+- controle de capacidade;
+- apresentação da capacidade utilizada;
+- responsividade da página;
+- exibição das pendências de publicação;
+- publicação de evento;
+- alteração do status para `PUBLISHED`;
+- visualização do evento publicado;
+- preservação do catálogo público e das imagens.
+
+---
+
+# 48. Problemas encontrados durante os testes
+
+Durante a implementação foram identificados e corrigidos problemas relacionados a:
+
+```text
+carregamento da página de configuração
+responsividade
+organização visual
+CSS inválido
+criação de múltiplos lotes
+exibição das ações do Organizador
+rotas de configuração
+```
+
+Os testes manuais foram utilizados para revisar cada problema antes de continuar o desenvolvimento.
+
+---
+
+# 49. Melhoria identificada para edição estrutural
+
+A criação e exclusão das estruturas necessárias foram implementadas.
+
+Entretanto, a edição direta de algumas configurações já criadas, como setor, não foi priorizada antes do encerramento da etapa.
+
+Essa possibilidade permanece como melhoria posterior.
+
+A ausência dessa ação não impede o fluxo principal validado de:
+
+```text
+criar
+configurar
+excluir/refazer quando necessário
+validar
+publicar
+```
+
+---
+
+# 50. Critério de aceite da Etapa 6
+
+O critério previsto para a Etapa 6 era permitir que o Organizador criasse um evento completo com configuração de preço, cota e tipo de ingresso.
+
+Ao final da etapa foi validado o fluxo:
+
+```text
+ORGANIZER
+   ↓
+cria evento
+   ↓
+define capacidade
+   ↓
+configura setores
+   ↓
+configura modalidades
+   ↓
+define QUANTITY ou SEAT
+   ↓
+configura categorias
+   ↓
+configura lotes
+   ↓
+define preços
+   ↓
+configura assentos quando necessário
+   ↓
+acompanha capacidades
+   ↓
+corrige pendências
+   ↓
+publica evento
+   ↓
+evento aparece publicamente
+```
+
+Portanto, o critério principal da Etapa 6 foi atendido.
+
+---
+
+# 51. Uso de IA nesta Etapa
+
+### Geração e Refatoração de Código
+
+A IA foi utilizada como apoio na implementação e revisão de:
+
+- controllers;
+- rotas;
+- serviços;
+- páginas React;
+- formulários;
+- componentes de configuração;
+- CSS responsivo;
+- integração entre Front-End e Back-End.
+
+### Resolução de Problemas
+
+A IA auxiliou no diagnóstico de problemas encontrados durante o desenvolvimento, incluindo:
+
+- página permanecendo em carregamento;
+- rotas incorretas ou ausentes;
+- organização da configuração de ingressos;
+- erro de CSS processado pelo PostCSS;
+- criação do segundo lote e lotes posteriores;
+- responsividade;
+- visualização das capacidades;
+- fluxo de publicação.
+
+### Organização da Interface
+
+A IA foi utilizada para propor e implementar formas de apresentar a configuração hierárquica de eventos de maneira mais compreensível.
+
+### Decisões Humanas / Manuais
+
+Foram realizadas manualmente:
+
+- definição de como o Organizador deveria configurar o evento;
+- decisão de separar dados gerais e configuração de ingressos;
+- decisão de apresentar capacidade máxima e capacidade utilizada;
+- avaliação visual da página;
+- decisão sobre quais versões da interface seriam mantidas;
+- testes de criação e edição;
+- testes de setores e modalidades;
+- testes de categorias;
+- testes de múltiplos lotes;
+- testes de assentos;
+- testes de exclusão;
+- testes de responsividade;
+- validação das mensagens de pendência;
+- teste final de publicação;
+- confirmação de que o catálogo e as imagens permaneceram funcionando;
+- decisão de deixar a edição direta de algumas estruturas como melhoria futura.
+
+A IA foi utilizada como ferramenta de apoio ao desenvolvimento, enquanto as regras, validações funcionais, testes e decisões finais de produto permaneceram sob avaliação humana.
+
+---
+
+# Resultado da Etapa 6
+
+Ao final da Etapa 6, o Boraí passou a possuir um módulo funcional de gerenciamento de eventos para o perfil `ORGANIZER`.
+
+O fluxo implementado permite:
+
+```text
+login como Organizador
++
+visualização dos próprios eventos
++
+criação de evento
++
+edição dos dados principais
++
+configuração de setores
++
+configuração de modalidades
++
+QUANTITY / SEAT
++
+categorias de preço
++
+múltiplos lotes
++
+preços
++
+assentos
++
+controle visual de capacidades
++
+exclusão de configurações
++
+validação das pendências
++
+publicação
++
+visualização pública do evento
+```
+
+Com isso, o módulo de Organização e Criação de Eventos encontra-se concluído e o projeto está preparado para continuar com a interface de seleção de ingressos e checkout.

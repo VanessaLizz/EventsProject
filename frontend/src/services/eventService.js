@@ -101,6 +101,149 @@ export function publishOrganizerEvent(
 }
 
 // ======================================================
+// CATÁLOGO EXTERNO
+// ======================================================
+
+export function getExternalCatalogTypes(
+    token
+) {
+    return apiRequest(
+        "/events/external/catalog/types",
+        {
+            token,
+        }
+    );
+}
+
+export function getExternalCatalog(
+    {
+        type = "ALL",
+        state = "",
+        page = 1,
+        query = "",
+        genreId = "",
+    } = {},
+    token
+) {
+    const searchParams =
+        new URLSearchParams();
+
+    searchParams.set(
+        "type",
+        type
+    );
+
+    searchParams.set(
+        "page",
+        String(
+            page
+        )
+    );
+
+    if (
+        state
+    ) {
+        searchParams.set(
+            "state",
+            state
+        );
+    }
+
+    if (
+        query
+    ) {
+        searchParams.set(
+            "query",
+            query
+        );
+    }
+
+    if (
+        genreId
+    ) {
+        searchParams.set(
+            "genreId",
+            String(
+                genreId
+            )
+        );
+    }
+
+    return apiRequest(
+        `/events/external/catalog?${searchParams.toString()}`,
+        {
+            token,
+        }
+    );
+}
+
+// ======================================================
+// APIS EXTERNAS — TMDB
+// ======================================================
+
+export function searchTmdbEvents(
+    query,
+    token
+) {
+    const searchParams =
+        new URLSearchParams({
+            query,
+        });
+
+    return apiRequest(
+        `/events/external/tmdb/search?${searchParams.toString()}`,
+        {
+            token,
+        }
+    );
+}
+
+export function getTmdbEventById(
+    externalId,
+    token
+) {
+    return apiRequest(
+        `/events/external/tmdb/${externalId}`,
+        {
+            token,
+        }
+    );
+}
+
+// ======================================================
+// APIS EXTERNAS — TICKETMASTER
+// ======================================================
+
+export function searchTicketmasterEvents(
+    query,
+    token
+) {
+    const searchParams =
+        new URLSearchParams({
+            query,
+        });
+
+    return apiRequest(
+        `/events/external/ticketmaster/search?${searchParams.toString()}`,
+        {
+            token,
+        }
+    );
+}
+
+export function getTicketmasterEventById(
+    externalId,
+    token
+) {
+    return apiRequest(
+        `/events/external/ticketmaster/${externalId}`,
+        {
+            token,
+        }
+    );
+}
+
+// ======================================================
 // TEMPLATES GLOBAIS
 // ======================================================
 

@@ -38,10 +38,10 @@ A aplicação possui três perfis principais:
 - [x] **Etapa 7** — Seleção de ingressos e checkout no Front-End
 - [x] **Etapa 8** — Meus Ingressos e visualização de QR Code
 - [x] **Etapa 9** — Portal da Portaria e validação de ingressos
+- [x] **Etapa 10** — Busca avançada, filtros e painel de métricas
 
 ## Próximas etapas
 
-- [ ] **Etapa 10** — Busca avançada, filtros e métricas
 - [ ] **Etapa 11** — Cancelamento e devolução ao estoque
 - [ ] **Etapa 12** — Docker e testes automatizados
 - [ ] **Etapa 13** — Publicação, polimento e entrega final
@@ -116,6 +116,44 @@ Autenticação.
 
 ---
 
+# Busca e Filtros
+
+O catálogo público permite localizar eventos através de diferentes critérios.
+
+Atualmente estão disponíveis:
+
+```text
+busca textual
++
+categoria
++
+cidade
++
+mês
++
+ano
+```
+
+Os filtros podem ser combinados.
+
+Exemplo:
+
+```text
+SHOW
++
+Fortaleza
++
+Agosto
++
+2026
+```
+
+A aplicação mantém somente os eventos que atendem simultaneamente aos critérios selecionados.
+
+Quando nenhum filtro está ativo, o catálogo apresenta normalmente os eventos públicos disponíveis.
+
+---
+
 # Autenticação
 
 A autenticação utiliza:
@@ -184,12 +222,19 @@ O Organizador pode:
 - criar eventos;
 - editar eventos;
 - configurar setores;
+- criar novos tipos de setor;
 - configurar modalidades;
+- criar novos tipos de modalidade;
 - configurar categorias de preço;
 - configurar lotes;
 - configurar assentos;
 - visualizar pendências;
-- publicar eventos.
+- publicar eventos;
+- acompanhar eventos futuros;
+- consultar eventos realizados;
+- visualizar métricas gerais;
+- filtrar métricas;
+- visualizar métricas individuais por evento.
 
 ## Portaria
 
@@ -219,7 +264,7 @@ Um usuário autenticado não pode acessar diretamente uma área destinada a outr
 
 # Módulo do Organizador
 
-O módulo do Organizador permite gerenciar o ciclo principal de criação e publicação de eventos.
+O módulo do Organizador permite gerenciar o ciclo principal de criação, configuração, publicação e acompanhamento de eventos.
 
 O fluxo inclui:
 
@@ -241,11 +286,39 @@ Assentos, quando aplicável
 Validar pendências
 ↓
 Publicar
+↓
+Acompanhar vendas e métricas
 ```
 
 O evento somente pode ser publicado quando atende às regras obrigatórias de configuração.
 
 A interface apresenta as pendências diretamente na página do próprio evento antes da publicação.
+
+---
+
+# Eventos Próximos e Realizados
+
+O painel do Organizador separa os eventos em duas abas:
+
+```text
+[ Próximos ] [ Realizados ]
+```
+
+A classificação utiliza a data e horário do evento.
+
+Eventos cuja data ainda não ocorreu aparecem em:
+
+```text
+Próximos
+```
+
+Eventos cuja data já passou aparecem em:
+
+```text
+Realizados
+```
+
+Cada aba apresenta também a quantidade de eventos pertencentes ao grupo.
 
 ---
 
@@ -266,6 +339,18 @@ Cadeira Inferior
 
 Cada setor possui capacidade própria.
 
+Além dos templates já existentes, o Organizador pode criar novos setores durante a configuração.
+
+Exemplo:
+
+```text
+Não encontrou o setor?
+
+[ Nome do novo setor ] [+ Novo setor]
+```
+
+Após a criação, o novo setor passa a fazer parte dos templates disponíveis.
+
 ## Modalidades
 
 As modalidades determinam como o ingresso é vendido dentro de um setor.
@@ -276,6 +361,18 @@ O projeto suporta:
 QUANTITY
 SEAT
 ```
+
+O Organizador também pode criar novas modalidades quando o tipo desejado ainda não existe.
+
+Exemplo:
+
+```text
+Não encontrou a modalidade?
+
+[ Nome da nova modalidade ] [+ Nova modalidade]
+```
+
+A modalidade criada pode ser utilizada no setor correspondente.
 
 ### QUANTITY
 
@@ -308,6 +405,36 @@ A4
 ```
 
 Cada assento possui disponibilidade própria.
+
+---
+
+# Capacidades
+
+O Back-End valida múltiplos níveis de capacidade:
+
+```text
+Evento
+↓
+Setor
+↓
+Modalidade
+↓
+Lote
+```
+
+Uma compra não pode ultrapassar nenhum desses limites.
+
+Também são consideradas cotas associadas às categorias de preço.
+
+Na configuração do Organizador são apresentadas informações de:
+
+```text
+capacidade total
+capacidade utilizada
+capacidade disponível
+```
+
+A publicação permanece bloqueada enquanto a configuração comercial não estiver consistente.
 
 ---
 
@@ -720,23 +847,357 @@ Tickets já efetivamente vendidos não têm seus assentos liberados.
 
 ---
 
-# Capacidades
+# Painel de Métricas do Organizador
 
-O Back-End valida múltiplos níveis de capacidade:
+A Etapa 10 adicionou recursos analíticos ao módulo do Organizador.
+
+As métricas utilizam os Tickets associados aos eventos publicados.
+
+São considerados Tickets com status:
 
 ```text
-Evento
-↓
-Setor
-↓
-Modalidade
-↓
-Lote
+VALID
+USED
 ```
 
-Uma compra não pode ultrapassar nenhum desses limites.
+Entre as informações calculadas estão:
 
-Também são consideradas cotas associadas às categorias de preço.
+```text
+soldTickets
+revenueInCents
+occupancyPercentage
+remainingCapacity
+byCategory
+bySector
+```
+
+---
+
+# Visão Geral
+
+Na rota:
+
+```text
+/organizador
+```
+
+o Organizador possui uma visão consolidada dos eventos publicados.
+
+São apresentados KPIs como:
+
+```text
+Receita
+Ingressos vendidos
+Ticket médio
+Ocupação geral
+Eventos publicados
+```
+
+Esses valores são recalculados conforme os filtros do dashboard.
+
+---
+
+# Receita
+
+A receita utiliza o valor registrado individualmente em cada Ticket:
+
+```text
+unitPriceInCents
+```
+
+Isso permite preservar corretamente o valor da venda mesmo quando diferentes lotes possuem preços diferentes.
+
+Conceitualmente:
+
+```text
+Ticket 1 → R$ 200
+Ticket 2 → R$ 100
+Ticket 3 → R$ 150
+             ↓
+Receita → R$ 450
+```
+
+---
+
+# Ticket Médio
+
+O ticket médio utiliza:
+
+```text
+receita total
+-------------
+Tickets vendidos
+```
+
+A métrica existe tanto no dashboard geral quanto no painel individual do evento.
+
+---
+
+# Ocupação
+
+A ocupação utiliza:
+
+```text
+Tickets vendidos
+----------------- × 100
+capacidade
+```
+
+Na visão consolidada, são utilizadas a soma das vendas e a soma das capacidades dos eventos analisados.
+
+---
+
+# Vendas por Categoria de Evento
+
+O painel geral possui gráfico que agrupa os resultados pela categoria do evento.
+
+Exemplos:
+
+```text
+SHOW
+CINEMA
+TEATRO
+WORKSHOP
+```
+
+Para cada categoria podem ser visualizados:
+
+```text
+quantidade de eventos
+Tickets vendidos
+participação nas vendas
+receita
+```
+
+---
+
+# Filtros do Dashboard Geral
+
+A visão geral possui filtros próprios.
+
+São disponibilizados:
+
+```text
+Categoria
+Período
+Ano
+```
+
+## Categoria
+
+Exemplo:
+
+```text
+Todas as categorias
+Show
+Cinema
+Teatro
+```
+
+## Período
+
+Opções:
+
+```text
+Todos os períodos
+Próximos
+Realizados
+```
+
+## Ano
+
+Os anos são obtidos dinamicamente a partir dos eventos publicados.
+
+Exemplo:
+
+```text
+Todos os anos
+2026
+2027
+2028
+```
+
+Os três filtros podem ser combinados.
+
+---
+
+# Limpar Filtros
+
+O dashboard possui a ação:
+
+```text
+Limpar filtros
+```
+
+Ela restaura:
+
+```text
+Categoria → Todas
+Período → Todos
+Ano → Todos
+```
+
+Quando não há filtro ativo, o botão permanece desabilitado.
+
+---
+
+# Independência entre Filtros e Abas
+
+Os filtros analíticos e as abas de gerenciamento possuem responsabilidades diferentes.
+
+```text
+FILTROS DO DASHBOARD
+↓
+alteram métricas
+```
+
+```text
+PRÓXIMOS / REALIZADOS
+↓
+alteram listagem de eventos
+```
+
+Assim, uma análise específica não remove eventos da área de gerenciamento.
+
+---
+
+# Dashboard Individual do Evento
+
+Eventos publicados possuem acesso à página de métricas individuais.
+
+Rota:
+
+```text
+/organizador/eventos/:eventId/metricas
+```
+
+A página apresenta uma visualização analítica específica para o evento.
+
+Entre os KPIs disponíveis estão:
+
+```text
+Receita
+Ingressos vendidos
+Ticket médio
+Ocupação
+Lugares disponíveis
+```
+
+---
+
+# Ocupação do Evento
+
+O dashboard individual possui visualização do progresso de ocupação.
+
+Exemplo:
+
+```text
+Vendidos x capacidade
+
+████████████████░░░░
+
+80%
+```
+
+Também são apresentados:
+
+```text
+vendidos
+disponíveis
+capacidade total
+```
+
+---
+
+# Vendas por Categoria de Ingresso
+
+Os Tickets podem ser agrupados pelas categorias de preço.
+
+Exemplos:
+
+```text
+INTEIRA
+MEIA
+MEIA SOCIAL
+```
+
+Para cada categoria são apresentados:
+
+```text
+quantidade vendida
+percentual das vendas
+receita
+```
+
+Exemplo:
+
+```text
+INTEIRA
+
+7 ingressos • 70%
+
+R$ 5.600,00
+```
+
+---
+
+# Vendas por Setor
+
+O dashboard individual também agrupa as vendas pelos setores do evento.
+
+Exemplos:
+
+```text
+PISTA
+CAMAROTE
+PLATEIA
+```
+
+Para cada setor são apresentados:
+
+```text
+quantidade vendida
+percentual das vendas
+receita
+```
+
+Exemplo:
+
+```text
+CAMAROTE
+
+4 ingressos • 40%
+
+R$ 4.600,00
+```
+
+---
+
+# Resumo Comercial
+
+O painel individual também apresenta uma visão resumida contendo:
+
+```text
+situação do evento
+capacidade total
+ingressos vendidos
+disponibilidade
+receita
+ticket médio
+ocupação
+```
+
+A situação é definida automaticamente conforme a data do evento:
+
+```text
+A realizar
+```
+
+ou:
+
+```text
+Realizado
+```
 
 ---
 
@@ -930,19 +1391,22 @@ documents/etapas_desenvolvimento.md
 
 # Próxima Etapa
 
-## Etapa 10 — Busca Avançada, Filtros & Métricas
+## Etapa 11 — Cancelamento & Devolução ao Estoque
 
-Com os principais fluxos de Organizador, Cliente, compra, ingressos e Portaria implementados, a próxima etapa será dedicada à ampliação dos recursos de consulta e acompanhamento da plataforma.
+Com os fluxos principais de criação de eventos, compra, emissão de ingressos, QR Code, Portaria, busca, filtros e métricas implementados, a próxima etapa será dedicada ao tratamento de cancelamentos.
 
-A Etapa 10 está prevista para trabalhar principalmente com:
+A Etapa 11 deverá trabalhar principalmente com:
 
-- evolução da busca;
-- filtros adicionais;
-- métricas;
-- indicadores;
-- informações úteis para acompanhamento dos eventos.
+- cancelamento de ingressos;
+- alteração do status do Ticket;
+- regras para impedir utilização após cancelamento;
+- devolução de disponibilidade para modalidades `QUANTITY`;
+- devolução de assentos para modalidades `SEAT`;
+- consistência entre Ticket, pedido, estoque e assento;
+- atualização da visualização do Cliente após o cancelamento;
+- impacto do cancelamento nas métricas do Organizador.
 
-O escopo detalhado será validado antes da implementação para evitar duplicar funcionalidades de busca e filtros que já existem atualmente.
+As regras exatas de cancelamento e devolução ao estoque serão definidas antes da implementação para preservar a consistência das estruturas de venda já existentes.
 
 ---
 

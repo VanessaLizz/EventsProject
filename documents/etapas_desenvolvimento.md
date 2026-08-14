@@ -9340,3 +9340,1315 @@ Ingressos válidos são consumidos na primeira utilização e passam para o esta
 A separação entre visualização pública e credencial privada de entrada foi preservada, mantendo o QR Code como mecanismo exclusivo de validação na Portaria.
 
 Com isso, a Etapa 9 — Portal da Portaria & Validação de Ingressos encontra-se concluída.
+
+---
+
+# [Etapa 10] Busca Avançada, Filtros & Painel de Métricas
+
+**Status:** Concluído
+
+## Objetivo da Etapa
+
+Expandir os recursos de consulta e análise do Boraí, permitindo melhorar a localização de eventos no catálogo público e fornecer ao perfil `ORGANIZER` uma visão analítica das vendas e do desempenho dos seus eventos.
+
+A etapa teve como foco principal:
+
+- busca e filtros no catálogo público;
+- organização dos eventos do Organizador entre próximos e realizados;
+- criação de uma visão geral de desempenho;
+- criação de dashboard individual por evento;
+- métricas de vendas;
+- métricas de faturamento;
+- métricas de ocupação;
+- análise por categoria de ingresso;
+- análise por setor;
+- análise por categoria de evento;
+- filtros analíticos no painel geral;
+- melhorias adicionais na configuração de setores e modalidades.
+
+O critério originalmente previsto para a Etapa 10 era possuir filtros ativos e métricas de vendas visíveis no painel do Organizador.
+
+Esse escopo foi ampliado durante o desenvolvimento para fornecer uma experiência de análise mais próxima de um dashboard de BI.
+
+---
+
+# 1. Busca e filtros no catálogo público
+
+O catálogo público já possuía estrutura de busca e filtros iniciada durante a construção do Front-End.
+
+Na Etapa 10, esse comportamento foi consolidado como parte do recurso de busca avançada.
+
+O usuário pode localizar eventos utilizando:
+
+```text
+busca textual
++
+categoria
++
+cidade
++
+mês
++
+ano
+```
+
+Os filtros podem ser utilizados em conjunto.
+
+Isso permite cenários como:
+
+```text
+SHOW
++
+Fortaleza
++
+Agosto
++
+2026
+```
+
+reduzindo os eventos apresentados conforme os critérios selecionados.
+
+---
+
+# 2. Combinação de filtros
+
+Os filtros do catálogo não funcionam de forma isolada.
+
+A listagem considera simultaneamente os critérios ativos.
+
+Fluxo conceitual:
+
+```text
+EVENTOS PUBLICADOS
+        ↓
+BUSCA TEXTUAL
+        ↓
+CATEGORIA
+        ↓
+CIDADE
+        ↓
+MÊS
+        ↓
+ANO
+        ↓
+RESULTADOS
+```
+
+Quando nenhum filtro está ativo, o catálogo continua apresentando normalmente os eventos públicos disponíveis.
+
+---
+
+# 3. Separação entre eventos futuros e realizados
+
+O painel do Organizador passou a separar seus eventos em duas abas:
+
+```text
+Próximos
+```
+
+e:
+
+```text
+Realizados
+```
+
+A classificação utiliza:
+
+```text
+Event.dateTime
+```
+
+comparado à data atual.
+
+Eventos cuja data ainda não ocorreu aparecem em:
+
+```text
+Próximos
+```
+
+Eventos cuja data já passou aparecem em:
+
+```text
+Realizados
+```
+
+---
+
+# 4. Abas independentes no painel
+
+A separação foi implementada através de abas selecionáveis.
+
+Conceitualmente:
+
+```text
+[ Próximos ] [ Realizados ]
+```
+
+Cada aba apresenta também a quantidade correspondente de eventos.
+
+Essa abordagem substituiu uma primeira visualização em que os dois grupos eram apresentados simultaneamente na página.
+
+A decisão final foi manter uma única listagem visível por vez.
+
+---
+
+# 5. Métricas dos eventos no Back-End
+
+A rota existente:
+
+```text
+GET /events/organizer/mine
+```
+
+foi ampliada para retornar métricas associadas aos eventos do Organizador.
+
+Para cada evento são calculados dados como:
+
+```text
+soldTickets
+revenueInCents
+occupancyPercentage
+remainingCapacity
+byCategory
+bySector
+```
+
+As métricas consideram ingressos com status:
+
+```text
+VALID
+USED
+```
+
+Dessa forma, ingressos efetivamente emitidos continuam compondo as métricas mesmo depois de utilizados na entrada do evento.
+
+---
+
+# 6. Quantidade de ingressos vendidos
+
+A quantidade vendida é calculada a partir dos Tickets pertencentes ao evento.
+
+O resultado é disponibilizado como:
+
+```text
+soldTickets
+```
+
+Essa informação é utilizada tanto no painel geral quanto no dashboard individual.
+
+---
+
+# 7. Receita do evento
+
+Cada Ticket possui o valor efetivamente registrado no momento da compra:
+
+```text
+unitPriceInCents
+```
+
+A receita bruta é calculada através da soma desses valores.
+
+Resultado:
+
+```text
+revenueInCents
+```
+
+O cálculo utiliza o valor persistido no Ticket e não o preço atual do lote.
+
+Isso preserva corretamente o histórico de vendas mesmo quando existirem preços diferentes entre lotes.
+
+---
+
+# 8. Capacidade restante
+
+A disponibilidade geral apresentada nas métricas utiliza:
+
+```text
+capacidade do evento
+-
+ingressos vendidos
+```
+
+O resultado é disponibilizado como:
+
+```text
+remainingCapacity
+```
+
+O valor nunca é apresentado abaixo de zero.
+
+---
+
+# 9. Percentual de ocupação
+
+Foi implementado o cálculo:
+
+```text
+ingressos vendidos
+------------------- × 100
+capacidade total
+```
+
+O resultado é disponibilizado como:
+
+```text
+occupancyPercentage
+```
+
+O percentual é limitado visualmente a:
+
+```text
+100%
+```
+
+---
+
+# 10. Ticket médio
+
+No Front-End, o dashboard individual calcula o ticket médio utilizando:
+
+```text
+receita total
+-------------
+Tickets vendidos
+```
+
+Quando não existem vendas:
+
+```text
+ticket médio = R$ 0,00
+```
+
+Essa métrica permite avaliar o valor médio obtido por ingresso vendido.
+
+---
+
+# 11. Dashboard individual do evento
+
+Foi criada uma página específica para análise detalhada de cada evento.
+
+A rota utiliza o formato:
+
+```text
+/organizador/eventos/:eventId/metricas
+```
+
+O acesso permanece restrito ao perfil:
+
+```text
+ORGANIZER
+```
+
+A página foi desenvolvida com uma apresentação visual inspirada em dashboards analíticos, evitando mostrar apenas uma listagem simples de números.
+
+---
+
+# 12. KPIs do dashboard individual
+
+O dashboard apresenta indicadores principais do evento.
+
+Entre eles:
+
+```text
+Receita
+Ingressos vendidos
+Ticket médio
+Ocupação
+Lugares disponíveis
+```
+
+Os valores são calculados a partir das métricas retornadas pelo Back-End.
+
+---
+
+# 13. Visualização da ocupação geral
+
+Foi criada uma representação visual da ocupação.
+
+Exemplo conceitual:
+
+```text
+Vendidos x capacidade
+
+████████████████░░░░
+
+80%
+```
+
+Também são apresentados:
+
+```text
+vendidos
+disponíveis
+capacidade total
+```
+
+Isso permite compreender rapidamente o nível de ocupação do evento.
+
+---
+
+# 14. Vendas por categoria de ingresso
+
+O Back-End passou a agrupar os Tickets pela categoria de preço.
+
+Exemplos:
+
+```text
+INTEIRA
+MEIA
+MEIA SOCIAL
+```
+
+Para cada categoria são calculados:
+
+```text
+name
+quantity
+revenueInCents
+```
+
+Exemplo de estrutura:
+
+```text
+INTEIRA
+7 ingressos
+R$ 5.600,00
+
+MEIA
+3 ingressos
+R$ 1.200,00
+```
+
+---
+
+# 15. Receita por categoria de ingresso
+
+Inicialmente, a distribuição por categoria armazenava somente:
+
+```text
+quantity
+```
+
+Durante a Etapa 10, a estrutura foi ampliada para acumular também:
+
+```text
+revenueInCents
+```
+
+A cada Ticket processado:
+
+```text
+quantity += 1
+
+revenueInCents += ticket.unitPriceInCents
+```
+
+Isso permite analisar não apenas qual categoria vende mais ingressos, mas também qual gera maior faturamento.
+
+---
+
+# 16. Participação percentual por categoria
+
+O dashboard individual calcula também a participação de cada categoria sobre o total vendido.
+
+Exemplo:
+
+```text
+INTEIRA
+
+7 ingressos
+70%
+R$ 5.600,00
+```
+
+A barra visual continua baseada na quantidade vendida, enquanto a receita aparece como informação complementar.
+
+---
+
+# 17. Vendas por setor
+
+Os Tickets também passaram a ser agrupados pelo setor ao qual pertencem.
+
+Exemplos:
+
+```text
+PISTA
+CAMAROTE
+PLATEIA
+CADEIRA SUPERIOR
+```
+
+Para cada setor são calculados:
+
+```text
+name
+quantity
+revenueInCents
+```
+
+---
+
+# 18. Receita por setor
+
+Assim como nas categorias, cada setor passou a acumular a receita dos Tickets associados.
+
+Exemplo:
+
+```text
+PISTA
+6 ingressos
+R$ 3.600,00
+
+CAMAROTE
+4 ingressos
+R$ 4.600,00
+```
+
+Isso permite comparar o desempenho financeiro das diferentes áreas do evento.
+
+---
+
+# 19. Participação percentual por setor
+
+O dashboard apresenta também a participação de cada setor sobre o total de ingressos vendidos.
+
+Conceitualmente:
+
+```text
+CAMAROTE
+4 ingressos • 40%
+R$ 4.600,00
+████████████
+```
+
+A visualização combina:
+
+```text
+quantidade
++
+percentual
++
+faturamento
+```
+
+---
+
+# 20. Resumo comercial do evento
+
+Além dos KPIs e gráficos, o dashboard individual possui uma área de resumo.
+
+São apresentados:
+
+```text
+situação do evento
+capacidade total
+ingressos vendidos
+disponibilidade
+receita
+ticket médio
+ocupação
+```
+
+A situação é determinada automaticamente pela data.
+
+Exemplo:
+
+```text
+A realizar
+```
+
+ou:
+
+```text
+Realizado
+```
+
+---
+
+# 21. Visão geral do Organizador
+
+O painel principal do Organizador recebeu uma área específica:
+
+```text
+Visão geral
+```
+
+Essa área consolida o desempenho dos eventos publicados.
+
+O objetivo é permitir uma leitura rápida do negócio sem exigir a abertura individual de cada evento.
+
+---
+
+# 22. KPIs gerais
+
+A visão geral apresenta indicadores consolidados.
+
+Entre eles:
+
+```text
+Receita
+Ingressos vendidos
+Ticket médio
+Ocupação geral
+Eventos publicados
+```
+
+Os valores são calculados utilizando somente os eventos:
+
+```text
+PUBLISHED
+```
+
+que atendem aos filtros atualmente selecionados.
+
+---
+
+# 23. Receita consolidada
+
+A receita geral corresponde à soma de:
+
+```text
+event.metrics.revenueInCents
+```
+
+dos eventos publicados incluídos na análise.
+
+Conceitualmente:
+
+```text
+Evento A → R$ 5.000
+Evento B → R$ 3.000
+Evento C → R$ 2.000
+             ↓
+Receita geral → R$ 10.000
+```
+
+---
+
+# 24. Ticket médio geral
+
+O ticket médio consolidado utiliza:
+
+```text
+receita de todos os eventos filtrados
+--------------------------------------
+Tickets vendidos nesses eventos
+```
+
+Esse cálculo permite analisar o valor médio das vendas do Organizador como um todo.
+
+---
+
+# 25. Ocupação geral
+
+A ocupação consolidada considera:
+
+```text
+total de Tickets vendidos
+-------------------------- × 100
+soma das capacidades
+```
+
+dos eventos publicados incluídos no filtro atual.
+
+---
+
+# 26. Vendas por categoria de evento
+
+Foi criado um gráfico consolidado agrupando os eventos por:
+
+```text
+EventCategoryTemplate
+```
+
+Exemplos:
+
+```text
+SHOW
+CINEMA
+TEATRO
+WORKSHOP
+LITERÁRIO
+```
+
+Para cada categoria são acumulados:
+
+```text
+quantidade de eventos
+Tickets vendidos
+receita
+```
+
+---
+
+# 27. Dashboard por categoria de evento
+
+A visualização apresenta informações como:
+
+```text
+SHOWS E FESTAS
+
+3 eventos
+10 ingressos vendidos
+R$ 6.500,00
+```
+
+Uma barra proporcional facilita a comparação entre categorias.
+
+Isso permite identificar quais tipos de evento possuem maior volume de vendas.
+
+---
+
+# 28. Filtro por categoria
+
+A visão geral recebeu filtro por categoria do evento.
+
+Exemplo:
+
+```text
+[ Todas as categorias ▼ ]
+```
+
+As opções são construídas dinamicamente a partir das categorias presentes nos eventos publicados.
+
+Quando uma categoria é selecionada, são recalculados:
+
+```text
+KPIs
++
+gráfico por categoria
++
+quantidade de eventos analisados
+```
+
+---
+
+# 29. Filtro por período
+
+Foi implementado o filtro:
+
+```text
+Todos os períodos
+Próximos
+Realizados
+```
+
+A classificação utiliza novamente:
+
+```text
+Event.dateTime
+```
+
+em relação à data atual.
+
+Esse filtro é exclusivo da área analítica e não interfere nas abas utilizadas para navegar pelos cards dos eventos.
+
+---
+
+# 30. Filtro por ano
+
+A visão geral também permite selecionar o ano do evento.
+
+Exemplo:
+
+```text
+Todos os anos
+2026
+2027
+2028
+```
+
+Os anos disponíveis são obtidos dinamicamente a partir dos eventos publicados do Organizador.
+
+---
+
+# 31. Combinação dos filtros analíticos
+
+Os filtros da visão geral podem ser utilizados simultaneamente.
+
+Exemplo:
+
+```text
+Categoria:
+SHOW
+
+Período:
+Realizados
+
+Ano:
+2026
+```
+
+O dashboard passa a considerar somente eventos que atendem aos três critérios.
+
+Fluxo:
+
+```text
+EVENTOS DO ORGANIZADOR
+        ↓
+PUBLISHED
+        ↓
+CATEGORIA
+        ↓
+PERÍODO
+        ↓
+ANO
+        ↓
+EVENTOS ANALISADOS
+        ↓
+KPIs + GRÁFICO
+```
+
+---
+
+# 32. Botão Limpar filtros
+
+Foi adicionada a ação:
+
+```text
+Limpar filtros
+```
+
+Ao utilizá-la, os filtros retornam para:
+
+```text
+Categoria → Todas
+Período → Todos
+Ano → Todos
+```
+
+Quando nenhum filtro está ativo, o botão permanece desabilitado.
+
+---
+
+# 33. Quantidade de eventos no filtro atual
+
+A interface informa quantos eventos publicados estão sendo considerados pela análise.
+
+Exemplo:
+
+```text
+3 eventos publicados no filtro atual
+```
+
+Isso facilita interpretar os KPIs apresentados depois da aplicação dos filtros.
+
+---
+
+# 34. Independência entre dashboard e listagem
+
+Foi decidido manter duas lógicas independentes dentro do painel do Organizador.
+
+A área:
+
+```text
+VISÃO GERAL
+```
+
+utiliza:
+
+```text
+Categoria
+Período
+Ano
+```
+
+para análise.
+
+Já a área de gerenciamento utiliza:
+
+```text
+[ Próximos ] [ Realizados ]
+```
+
+para navegação entre os eventos.
+
+Portanto:
+
+```text
+FILTROS DO DASHBOARD
+        ↓
+alteram somente métricas
+
+
+ABAS DOS EVENTOS
+        ↓
+alteram somente a listagem
+```
+
+Isso evita que uma análise específica esconda eventos da área de gerenciamento.
+
+---
+
+# 35. Estilização dos filtros
+
+Os novos filtros foram integrados ao padrão visual existente do Boraí.
+
+Foram estilizados:
+
+```text
+select de categoria
+select de período
+select de ano
+botão Limpar filtros
+indicador de eventos filtrados
+```
+
+A implementação reutiliza as variáveis visuais globais existentes.
+
+Entre elas:
+
+```text
+--surface
+--border
+--purple
+--text
+--text-soft
+```
+
+---
+
+# 36. Responsividade dos filtros
+
+A área de filtros foi preparada para diferentes tamanhos de tela.
+
+Em telas maiores:
+
+```text
+Categoria | Período | Ano | Limpar filtros
+```
+
+Em telas intermediárias:
+
+```text
+Categoria | Período
+Ano       | Limpar filtros
+```
+
+Em telas menores:
+
+```text
+Categoria
+Período
+Ano
+Limpar filtros
+```
+
+Dessa forma, os controles continuam utilizáveis em dispositivos móveis.
+
+---
+
+# 37. Criação de novos setores pelo Organizador
+
+Durante a Etapa 10 também foi ampliada a flexibilidade da configuração comercial.
+
+Antes, o Organizador dependia apenas dos templates de setores previamente existentes.
+
+Foi adicionada a possibilidade de criar um novo template diretamente durante a configuração do evento.
+
+A interface passou a oferecer:
+
+```text
+Não encontrou o setor?
+
+[ Nome do novo setor ] [+ Novo setor]
+```
+
+Após a criação, o novo setor é selecionado automaticamente para utilização.
+
+---
+
+# 38. Criação de novas modalidades
+
+A mesma flexibilidade foi adicionada às modalidades.
+
+Dentro de cada setor, o Organizador pode criar uma modalidade que ainda não exista.
+
+Exemplo:
+
+```text
+Não encontrou a modalidade?
+
+[ Nome da nova modalidade ] [+ Nova modalidade]
+```
+
+A modalidade criada passa a integrar os templates disponíveis e é selecionada automaticamente no setor correspondente.
+
+---
+
+# 39. Escopo correto da modalidade por setor
+
+Durante a implementação da criação dinâmica de modalidades foi identificado um problema de escopo no Front-End.
+
+O erro apresentado foi:
+
+```text
+ReferenceError: sector is not defined
+```
+
+A causa era a tentativa de utilizar:
+
+```text
+sector.id
+```
+
+fora do contexto em que `sector` estava definido.
+
+A implementação foi corrigida mantendo o formulário de nova modalidade dentro de:
+
+```text
+eventData.sectors.map(...)
+```
+
+Assim:
+
+```text
+SETOR
+  ↓
+NOVA MODALIDADE
+```
+
+permanece associado corretamente ao setor correspondente.
+
+---
+
+# 40. Preservação das regras de publicação
+
+A criação dinâmica de novos setores e modalidades não removeu as validações existentes para publicação.
+
+O evento continua exigindo configuração comercial válida antes de ser publicado.
+
+Entre as verificações permanecem:
+
+```text
+existência de setor
+capacidade total distribuída
+modalidades configuradas
+capacidade das modalidades
+categorias de preço
+lotes
+quantidades dos lotes
+preços
+assentos para modalidades SEAT
+```
+
+Portanto, criar um novo setor ou modalidade não significa que o evento possa ser publicado sem concluir sua configuração.
+
+---
+
+# 41. Arquivos envolvidos na Etapa 10
+
+Entre os arquivos criados ou modificados durante a etapa estão:
+
+```text
+backend/src/controllers/eventController.js
+backend/src/controllers/eventConfigurationController.js
+backend/src/routes/eventRoutes.js
+
+frontend/src/App.jsx
+frontend/src/pages/OrganizerPage.jsx
+frontend/src/pages/OrganizerEventMetricsPage.jsx
+frontend/src/pages/OrganizerEventMetricsPage.css
+frontend/src/pages/OrganizerEventConfigurationPage.jsx
+frontend/src/services/eventService.js
+frontend/src/index.css
+```
+
+Além desses arquivos, a etapa reutilizou estruturas existentes de:
+
+```text
+autenticação
+RBAC
+eventos
+Tickets
+checkout
+templates
+configuração comercial
+```
+
+---
+
+# 42. Testes funcionais realizados
+
+Durante a Etapa 10 foram realizados testes manuais das funcionalidades implementadas.
+
+Foram validados:
+
+- [x] painel do Organizador continua carregando;
+- [x] eventos do Organizador continuam sendo listados;
+- [x] separação entre eventos próximos e realizados;
+- [x] troca entre as abas `Próximos` e `Realizados`;
+- [x] métricas gerais são exibidas;
+- [x] receita geral é calculada;
+- [x] quantidade total vendida é calculada;
+- [x] ticket médio geral é calculado;
+- [x] ocupação geral é calculada;
+- [x] gráfico por categoria de evento é exibido;
+- [x] dashboard individual do evento abre corretamente;
+- [x] receita individual é apresentada;
+- [x] ingressos vendidos são apresentados;
+- [x] ticket médio individual é apresentado;
+- [x] ocupação individual é apresentada;
+- [x] lugares disponíveis são apresentados;
+- [x] gráfico de vendas por categoria de ingresso funciona;
+- [x] quantidade por categoria é apresentada;
+- [x] receita por categoria é apresentada;
+- [x] percentual por categoria é apresentado;
+- [x] gráfico de vendas por setor funciona;
+- [x] quantidade por setor é apresentada;
+- [x] receita por setor é apresentada;
+- [x] percentual por setor é apresentado;
+- [x] filtro por categoria funciona;
+- [x] filtro por período funciona;
+- [x] filtro por ano funciona;
+- [x] combinação dos filtros funciona;
+- [x] KPIs são recalculados conforme os filtros;
+- [x] gráfico é recalculado conforme os filtros;
+- [x] botão `Limpar filtros` funciona;
+- [x] filtros não interferem nas abas da listagem;
+- [x] criação de novo setor funciona;
+- [x] criação de nova modalidade funciona;
+- [x] nova modalidade permanece associada ao setor correto;
+- [x] regras de configuração e publicação permanecem funcionando;
+- [x] Back-End continua iniciando normalmente;
+- [x] Front-End continua executando normalmente;
+- [x] alterações visuais dos filtros foram validadas.
+
+---
+
+# 43. Problemas encontrados e correções
+
+Durante a Etapa 10 foram encontrados e corrigidos problemas relacionados a:
+
+```text
+organização visual inicial das métricas
+separação visual entre eventos futuros e realizados
+necessidade de abas em vez de duas listas simultâneas
+métricas inicialmente limitadas à quantidade
+ausência de faturamento por categoria
+ausência de faturamento por setor
+necessidade de filtros no dashboard geral
+criação de novos templates de setor
+criação de novos templates de modalidade
+escopo incorreto da variável sector
+integração visual dos novos filtros
+```
+
+Um dos erros identificados no Front-End foi:
+
+```text
+ReferenceError: sector is not defined
+```
+
+A correção reorganizou o formulário de criação de modalidade para permanecer dentro do contexto do setor correspondente.
+
+Após a correção, a criação e configuração foram testadas novamente com sucesso.
+
+---
+
+# 44. Decisões Humanas / Manuais
+
+Durante a implementação da Etapa 10 foram definidas e validadas manualmente as seguintes decisões:
+
+- utilizar uma visualização mais próxima de dashboards de BI para as métricas detalhadas;
+- manter uma visão mais simples no painel geral;
+- criar uma página específica de métricas ao entrar em um evento;
+- separar eventos futuros e realizados;
+- utilizar abas para essa separação em vez de apresentar as duas listas simultaneamente;
+- manter os filtros analíticos independentes das abas de gerenciamento;
+- apresentar quantidade e faturamento nas análises por categoria;
+- apresentar quantidade e faturamento nas análises por setor;
+- apresentar participação percentual nas distribuições;
+- incluir ticket médio entre os indicadores;
+- manter somente eventos publicados nos cálculos analíticos;
+- utilizar Tickets `VALID` e `USED` nas métricas de venda;
+- permitir que o Organizador crie novos setores;
+- permitir que o Organizador crie novas modalidades;
+- manter as regras obrigatórias de configuração antes da publicação;
+- validar visualmente a organização do dashboard;
+- validar manualmente os filtros;
+- validar manualmente os cálculos apresentados;
+- corrigir o formulário de modalidade após identificar erro de escopo;
+- preservar as funcionalidades já concluídas das etapas anteriores.
+
+---
+
+# 45. Uso de IA nesta Etapa
+
+### Geração e Refatoração de Código
+
+A IA foi utilizada como apoio na implementação e revisão de:
+
+- consultas Prisma utilizadas nas métricas;
+- agregação de vendas;
+- cálculo de receita;
+- agrupamento por categoria;
+- agrupamento por setor;
+- dashboard geral;
+- dashboard individual;
+- filtros analíticos;
+- separação entre eventos próximos e realizados;
+- criação dinâmica de setores;
+- criação dinâmica de modalidades;
+- integração entre serviços do Front-End e rotas do Back-End;
+- CSS dos dashboards;
+- responsividade dos filtros.
+
+### Resolução de Problemas
+
+A IA auxiliou na investigação de problemas relacionados a:
+
+- estrutura dos dados utilizados pelos dashboards;
+- ausência inicial de receita nas distribuições;
+- organização visual das métricas;
+- separação entre eventos realizados e futuros;
+- criação dinâmica de templates;
+- escopo da variável `sector`;
+- erro:
+
+```text
+ReferenceError: sector is not defined
+```
+
+- integração das novas métricas ao Front-End;
+- estilização dos filtros sem alterar o restante da interface.
+
+### Testes
+
+A IA foi utilizada para orientar a sequência de validações durante a implementação.
+
+A execução dos testes, confirmação dos resultados e avaliação visual foram realizadas manualmente.
+
+---
+
+# 46. Critério de aceite da Etapa 10
+
+O critério originalmente definido para a Etapa 10 era:
+
+```text
+Busca por filtros ativa
++
+métricas de vendas visíveis
+no painel do Organizador
+```
+
+Ao final da implementação foi validado o fluxo:
+
+```text
+VISITANTE
+    ↓
+acessa catálogo
+    ↓
+utiliza busca e filtros
+    ↓
+localiza eventos
+```
+
+e:
+
+```text
+ORGANIZER
+    ↓
+acessa painel
+    ↓
+visualiza visão geral
+    ↓
+filtra por categoria
+    ↓
+filtra por período
+    ↓
+filtra por ano
+    ↓
+KPIs são recalculados
+    ↓
+gráfico é recalculado
+    ↓
+seleciona Próximos ou Realizados
+    ↓
+abre métricas de um evento
+    ↓
+visualiza receita
+    ↓
+visualiza vendas
+    ↓
+visualiza ticket médio
+    ↓
+visualiza ocupação
+    ↓
+analisa categorias de ingresso
+    ↓
+analisa setores
+```
+
+Também foi validado:
+
+```text
+ORGANIZER
+    ↓
+configura evento
+    ↓
+não encontra setor/modalidade desejado
+    ↓
+cria novo template
+    ↓
+utiliza o novo setor/modalidade
+    ↓
+continua configuração normalmente
+```
+
+Portanto, o critério principal da Etapa 10 foi atendido e ampliado.
+
+---
+
+# Resultado da Etapa 10
+
+Ao término da Etapa 10, o Boraí passou a possuir recursos consolidados de busca, filtragem e análise de desempenho.
+
+O fluxo analítico disponível ao Organizador passou a incluir:
+
+```text
+painel geral
++
+eventos próximos
++
+eventos realizados
++
+KPIs
++
+receita
++
+Tickets vendidos
++
+ticket médio
++
+ocupação
++
+filtros por categoria
++
+filtros por período
++
+filtros por ano
++
+gráfico por categoria de evento
++
+dashboard individual
++
+vendas por categoria de ingresso
++
+receita por categoria de ingresso
++
+vendas por setor
++
+receita por setor
++
+participação percentual
++
+criação de novos setores
++
+criação de novas modalidades
+```
+
+A Etapa 10 também ampliou a autonomia do Organizador na configuração dos eventos sem remover as regras de consistência e publicação implementadas anteriormente.
+
+Com isso, a **Etapa 10 — Busca Avançada, Filtros & Painel de Métricas** encontra-se concluída e o projeto está preparado para seguir para a **Etapa 11 — Cancelamento & Devolução ao Estoque**.

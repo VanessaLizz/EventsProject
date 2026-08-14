@@ -14,11 +14,18 @@ import {
     getEvents,
 } from "../services/eventService.js";
 
-function normalizeText(value = "") {
+function normalizeText(
+    value = ""
+) {
     return value
         .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .toLocaleLowerCase("pt-BR")
+        .replace(
+            /[\u0300-\u036f]/g,
+            ""
+        )
+        .toLocaleLowerCase(
+            "pt-BR"
+        )
         .trim();
 }
 
@@ -37,36 +44,82 @@ const MONTHS = [
     "Dezembro",
 ];
 
+const EVENTS_PER_PAGE =
+    6;
+
 export default function EventsPage() {
-    const [searchParams] =
+    const [
+        searchParams,
+    ] =
         useSearchParams();
 
-    const [events, setEvents] =
+    const initialCategory =
+        searchParams.get(
+            "categoria"
+        ) || "";
+
+    const [
+        events,
+        setEvents,
+    ] =
         useState([]);
 
-    const [search, setSearch] =
+    const [
+        search,
+        setSearch,
+    ] =
         useState("");
 
-    const [category, setCategory] =
+    const [
+        category,
+        setCategory,
+    ] =
         useState(
-            searchParams.get(
-                "categoria"
-            ) || ""
+            initialCategory
         );
 
-    const [city, setCity] =
+    const [
+        city,
+        setCity,
+    ] =
         useState("");
 
-    const [month, setMonth] =
+    const [
+        month,
+        setMonth,
+    ] =
         useState("");
 
-    const [year, setYear] =
+    const [
+        year,
+        setYear,
+    ] =
         useState("");
 
-    const [isLoading, setIsLoading] =
+    const [
+        sortOrder,
+        setSortOrder,
+    ] =
+        useState(
+            "date-asc"
+        );
+
+    const [
+        currentPage,
+        setCurrentPage,
+    ] =
+        useState(1);
+
+    const [
+        isLoading,
+        setIsLoading,
+    ] =
         useState(true);
 
-    const [error, setError] =
+    const [
+        error,
+        setError,
+    ] =
         useState("");
 
     useEffect(() => {
@@ -76,7 +129,8 @@ export default function EventsPage() {
                     await getEvents();
 
                 setEvents(
-                    response.events
+                    response.events ||
+                    []
                 );
             } catch (error) {
                 setError(
@@ -84,12 +138,24 @@ export default function EventsPage() {
                     "Não foi possível carregar os eventos."
                 );
             } finally {
-                setIsLoading(false);
+                setIsLoading(
+                    false
+                );
             }
         }
 
         loadEvents();
     }, []);
+
+    useEffect(() => {
+        setCategory(
+            searchParams.get(
+                "categoria"
+            ) || ""
+        );
+    }, [
+        searchParams,
+    ]);
 
     const categories =
         useMemo(() => {
@@ -97,15 +163,30 @@ export default function EventsPage() {
                 ...new Set(
                     events
                         .map(
-                            (event) =>
+                            (
+                                event
+                            ) =>
                                 event
                                     .categoryTemplate
                                     ?.name
                         )
-                        .filter(Boolean)
+                        .filter(
+                            Boolean
+                        )
                 ),
-            ].sort();
-        }, [events]);
+            ].sort(
+                (
+                    a,
+                    b
+                ) =>
+                    a.localeCompare(
+                        b,
+                        "pt-BR"
+                    )
+            );
+        }, [
+            events,
+        ]);
 
     const cities =
         useMemo(() => {
@@ -113,98 +194,183 @@ export default function EventsPage() {
                 ...new Set(
                     events
                         .map(
-                            (event) =>
+                            (
+                                event
+                            ) =>
                                 event.city
                         )
-                        .filter(Boolean)
+                        .filter(
+                            Boolean
+                        )
                 ),
-            ].sort((a, b) =>
-                a.localeCompare(
-                    b,
-                    "pt-BR"
-                )
+            ].sort(
+                (
+                    a,
+                    b
+                ) =>
+                    a.localeCompare(
+                        b,
+                        "pt-BR"
+                    )
             );
-        }, [events]);
+        }, [
+            events,
+        ]);
 
     const years =
         useMemo(() => {
             return [
                 ...new Set(
                     events.map(
-                        (event) =>
+                        (
+                            event
+                        ) =>
                             new Date(
                                 event.dateTime
                             ).getFullYear()
                     )
                 ),
             ].sort(
-                (a, b) => a - b
+                (
+                    a,
+                    b
+                ) =>
+                    a - b
             );
-        }, [events]);
+        }, [
+            events,
+        ]);
 
     const filteredEvents =
         useMemo(() => {
             const normalizedSearch =
-                normalizeText(search);
+                normalizeText(
+                    search
+                );
 
-            return events.filter(
-                (event) => {
-                    const searchableText =
-                        normalizeText(
-                            [
-                                event.title,
-                                event.city,
-                                event.state,
-                                event.venueName,
-                            ]
-                                .filter(Boolean)
-                                .join(" ")
-                        );
-
-                    const matchesSearch =
-                        !normalizedSearch ||
-                        searchableText.includes(
-                            normalizedSearch
-                        );
-
-                    const matchesCategory =
-                        !category ||
+            const filtered =
+                events.filter(
+                    (
                         event
-                            .categoryTemplate
-                            ?.name ===
-                        category;
+                    ) => {
+                        const searchableText =
+                            normalizeText(
+                                [
+                                    event.title,
+                                    event.city,
+                                    event.state,
+                                    event.venueName,
+                                    event
+                                        .categoryTemplate
+                                        ?.name,
+                                ]
+                                    .filter(
+                                        Boolean
+                                    )
+                                    .join(
+                                        " "
+                                    )
+                            );
 
-                    const matchesCity =
-                        !city ||
-                        normalizeText(
-                            event.city
-                        ) ===
-                        normalizeText(
-                            city
+                        const matchesSearch =
+                            !normalizedSearch ||
+                            searchableText
+                                .includes(
+                                    normalizedSearch
+                                );
+
+                        const matchesCategory =
+                            !category ||
+                            event
+                                .categoryTemplate
+                                ?.name ===
+                                category;
+
+                        const matchesCity =
+                            !city ||
+                            normalizeText(
+                                event.city
+                            ) ===
+                                normalizeText(
+                                    city
+                                );
+
+                        const eventDate =
+                            new Date(
+                                event.dateTime
+                            );
+
+                        const matchesMonth =
+                            !month ||
+                            eventDate
+                                .getMonth() ===
+                                Number(
+                                    month
+                                );
+
+                        const matchesYear =
+                            !year ||
+                            eventDate
+                                .getFullYear() ===
+                                Number(
+                                    year
+                                );
+
+                        return (
+                            matchesSearch &&
+                            matchesCategory &&
+                            matchesCity &&
+                            matchesMonth &&
+                            matchesYear
                         );
+                    }
+                );
 
-                    const eventDate =
-                        new Date(
-                            event.dateTime
-                        );
+            return [
+                ...filtered,
+            ].sort(
+                (
+                    a,
+                    b
+                ) => {
+                    switch (
+                        sortOrder
+                    ) {
+                        case "date-desc":
+                            return (
+                                new Date(
+                                    b.dateTime
+                                ) -
+                                new Date(
+                                    a.dateTime
+                                )
+                            );
 
-                    const matchesMonth =
-                        !month ||
-                        eventDate.getMonth() ===
-                        Number(month);
+                        case "title-asc":
+                            return a.title
+                                .localeCompare(
+                                    b.title,
+                                    "pt-BR"
+                                );
 
-                    const matchesYear =
-                        !year ||
-                        eventDate.getFullYear() ===
-                        Number(year);
+                        case "title-desc":
+                            return b.title
+                                .localeCompare(
+                                    a.title,
+                                    "pt-BR"
+                                );
 
-                    return (
-                        matchesSearch &&
-                        matchesCategory &&
-                        matchesCity &&
-                        matchesMonth &&
-                        matchesYear
-                    );
+                        case "date-asc":
+                        default:
+                            return (
+                                new Date(
+                                    a.dateTime
+                                ) -
+                                new Date(
+                                    b.dateTime
+                                )
+                            );
+                    }
                 }
             );
         }, [
@@ -214,14 +380,118 @@ export default function EventsPage() {
             city,
             month,
             year,
+            sortOrder,
         ]);
 
+    const totalPages =
+        Math.max(
+            Math.ceil(
+                filteredEvents.length /
+                    EVENTS_PER_PAGE
+            ),
+            1
+        );
+
+    const paginatedEvents =
+        useMemo(() => {
+            const start =
+                (
+                    currentPage -
+                    1
+                ) *
+                EVENTS_PER_PAGE;
+
+            const end =
+                start +
+                EVENTS_PER_PAGE;
+
+            return filteredEvents.slice(
+                start,
+                end
+            );
+        }, [
+            filteredEvents,
+            currentPage,
+        ]);
+
+    useEffect(() => {
+        setCurrentPage(
+            1
+        );
+    }, [
+        search,
+        category,
+        city,
+        month,
+        year,
+        sortOrder,
+    ]);
+
+    useEffect(() => {
+        if (
+            currentPage >
+            totalPages
+        ) {
+            setCurrentPage(
+                totalPages
+            );
+        }
+    }, [
+        currentPage,
+        totalPages,
+    ]);
+
     function clearFilters() {
-        setSearch("");
-        setCategory("");
-        setCity("");
-        setMonth("");
-        setYear("");
+        setSearch(
+            ""
+        );
+
+        setCategory(
+            ""
+        );
+
+        setCity(
+            ""
+        );
+
+        setMonth(
+            ""
+        );
+
+        setYear(
+            ""
+        );
+
+        setSortOrder(
+            "date-asc"
+        );
+
+        setCurrentPage(
+            1
+        );
+    }
+
+    function goToPage(
+        page
+    ) {
+        if (
+            page < 1 ||
+            page > totalPages
+        ) {
+            return;
+        }
+
+        setCurrentPage(
+            page
+        );
+
+        window.scrollTo({
+            top:
+                0,
+
+            behavior:
+                "smooth",
+        });
     }
 
     const hasFilters =
@@ -233,7 +503,27 @@ export default function EventsPage() {
             year
         );
 
-    if (isLoading) {
+    const firstVisibleEvent =
+        filteredEvents.length ===
+        0
+            ? 0
+            : (
+                  currentPage -
+                  1
+              ) *
+                  EVENTS_PER_PAGE +
+              1;
+
+    const lastVisibleEvent =
+        Math.min(
+            currentPage *
+                EVENTS_PER_PAGE,
+            filteredEvents.length
+        );
+
+    if (
+        isLoading
+    ) {
         return (
             <main className="events-page">
                 <div className="catalog-status">
@@ -245,7 +535,9 @@ export default function EventsPage() {
         );
     }
 
-    if (error) {
+    if (
+        error
+    ) {
         return (
             <main className="events-page">
                 <div className="events-heading">
@@ -300,11 +592,17 @@ export default function EventsPage() {
                     <input
                         id="event-search"
                         type="search"
-                        placeholder="Evento, cidade ou local"
-                        value={search}
-                        onChange={(event) =>
+                        placeholder="Evento, categoria, cidade ou local"
+                        value={
+                            search
+                        }
+                        onChange={(
+                            event
+                        ) =>
                             setSearch(
-                                event.target.value
+                                event
+                                    .target
+                                    .value
                             )
                         }
                     />
@@ -317,10 +615,16 @@ export default function EventsPage() {
 
                     <select
                         id="event-category"
-                        value={category}
-                        onChange={(event) =>
+                        value={
+                            category
+                        }
+                        onChange={(
+                            event
+                        ) =>
                             setCategory(
-                                event.target.value
+                                event
+                                    .target
+                                    .value
                             )
                         }
                     >
@@ -329,7 +633,9 @@ export default function EventsPage() {
                         </option>
 
                         {categories.map(
-                            (categoryName) => (
+                            (
+                                categoryName
+                            ) => (
                                 <option
                                     key={
                                         categoryName
@@ -354,10 +660,16 @@ export default function EventsPage() {
 
                     <select
                         id="event-city"
-                        value={city}
-                        onChange={(event) =>
+                        value={
+                            city
+                        }
+                        onChange={(
+                            event
+                        ) =>
                             setCity(
-                                event.target.value
+                                event
+                                    .target
+                                    .value
                             )
                         }
                     >
@@ -366,7 +678,9 @@ export default function EventsPage() {
                         </option>
 
                         {cities.map(
-                            (cityName) => (
+                            (
+                                cityName
+                            ) => (
                                 <option
                                     key={
                                         cityName
@@ -391,10 +705,16 @@ export default function EventsPage() {
 
                     <select
                         id="event-month"
-                        value={month}
-                        onChange={(event) =>
+                        value={
+                            month
+                        }
+                        onChange={(
+                            event
+                        ) =>
                             setMonth(
-                                event.target.value
+                                event
+                                    .target
+                                    .value
                             )
                         }
                     >
@@ -431,10 +751,16 @@ export default function EventsPage() {
 
                     <select
                         id="event-year"
-                        value={year}
-                        onChange={(event) =>
+                        value={
+                            year
+                        }
+                        onChange={(
+                            event
+                        ) =>
                             setYear(
-                                event.target.value
+                                event
+                                    .target
+                                    .value
                             )
                         }
                     >
@@ -443,7 +769,9 @@ export default function EventsPage() {
                         </option>
 
                         {years.map(
-                            (yearValue) => (
+                            (
+                                yearValue
+                            ) => (
                                 <option
                                     key={
                                         yearValue
@@ -461,6 +789,44 @@ export default function EventsPage() {
                     </select>
                 </div>
 
+                <div>
+                    <label htmlFor="event-sort">
+                        Ordenar por
+                    </label>
+
+                    <select
+                        id="event-sort"
+                        value={
+                            sortOrder
+                        }
+                        onChange={(
+                            event
+                        ) =>
+                            setSortOrder(
+                                event
+                                    .target
+                                    .value
+                            )
+                        }
+                    >
+                        <option value="date-asc">
+                            Data mais próxima
+                        </option>
+
+                        <option value="date-desc">
+                            Data mais distante
+                        </option>
+
+                        <option value="title-asc">
+                            Nome A–Z
+                        </option>
+
+                        <option value="title-desc">
+                            Nome Z–A
+                        </option>
+                    </select>
+                </div>
+
                 {hasFilters && (
                     <button
                         type="button"
@@ -475,16 +841,41 @@ export default function EventsPage() {
             </section>
 
             <div className="catalog-summary">
-                <p>
-                    <strong>
-                        {
-                            filteredEvents.length
-                        }
-                    </strong>{" "}
-                    {filteredEvents.length === 1
-                        ? "evento encontrado"
-                        : "eventos encontrados"}
-                </p>
+                <div>
+                    <p>
+                        <strong>
+                            {
+                                filteredEvents
+                                    .length
+                            }
+                        </strong>{" "}
+                        {filteredEvents
+                            .length ===
+                        1
+                            ? "evento encontrado"
+                            : "eventos encontrados"}
+                    </p>
+
+                    {filteredEvents
+                        .length >
+                        0 && (
+                        <small>
+                            Exibindo{" "}
+                            {
+                                firstVisibleEvent
+                            }
+                            {" - "}
+                            {
+                                lastVisibleEvent
+                            }
+                            {" de "}
+                            {
+                                filteredEvents
+                                    .length
+                            }
+                        </small>
+                    )}
+                </div>
 
                 {hasFilters && (
                     <span>
@@ -493,7 +884,9 @@ export default function EventsPage() {
                 )}
             </div>
 
-            {filteredEvents.length === 0 ? (
+            {filteredEvents
+                .length ===
+            0 ? (
                 <section className="catalog-empty">
                     <h2>
                         Nenhum evento encontrado
@@ -516,20 +909,115 @@ export default function EventsPage() {
                     )}
                 </section>
             ) : (
-                <section className="event-grid">
-                    {filteredEvents.map(
-                        (event) => (
-                            <EventCard
-                                key={
-                                    event.id
+                <>
+                    <section className="event-grid">
+                        {paginatedEvents.map(
+                            (
+                                event
+                            ) => (
+                                <EventCard
+                                    key={
+                                        event.id
+                                    }
+                                    event={
+                                        event
+                                    }
+                                />
+                            )
+                        )}
+                    </section>
+
+                    {totalPages >
+                        1 && (
+                        <nav
+                            className="catalog-pagination"
+                            aria-label="Paginação dos eventos"
+                        >
+                            <button
+                                type="button"
+                                className="catalog-pagination-button"
+                                onClick={() =>
+                                    goToPage(
+                                        currentPage -
+                                            1
+                                    )
                                 }
-                                event={
-                                    event
+                                disabled={
+                                    currentPage ===
+                                    1
                                 }
-                            />
-                        )
+                            >
+                                ← Anterior
+                            </button>
+
+                            <div className="catalog-pagination-pages">
+                                {Array
+                                    .from(
+                                        {
+                                            length:
+                                                totalPages,
+                                        },
+                                        (
+                                            _,
+                                            index
+                                        ) =>
+                                            index +
+                                            1
+                                    )
+                                    .map(
+                                        (
+                                            page
+                                        ) => (
+                                            <button
+                                                type="button"
+                                                key={
+                                                    page
+                                                }
+                                                className={
+                                                    page ===
+                                                    currentPage
+                                                        ? "catalog-pagination-number catalog-pagination-number-active"
+                                                        : "catalog-pagination-number"
+                                                }
+                                                onClick={() =>
+                                                    goToPage(
+                                                        page
+                                                    )
+                                                }
+                                                aria-current={
+                                                    page ===
+                                                    currentPage
+                                                        ? "page"
+                                                        : undefined
+                                                }
+                                            >
+                                                {
+                                                    page
+                                                }
+                                            </button>
+                                        )
+                                    )}
+                            </div>
+
+                            <button
+                                type="button"
+                                className="catalog-pagination-button"
+                                onClick={() =>
+                                    goToPage(
+                                        currentPage +
+                                            1
+                                    )
+                                }
+                                disabled={
+                                    currentPage ===
+                                    totalPages
+                                }
+                            >
+                                Próxima →
+                            </button>
+                        </nav>
                     )}
-                </section>
+                </>
             )}
         </main>
     );

@@ -101,6 +101,38 @@ export function publishOrganizerEvent(
 }
 
 // ======================================================
+// TEMPLATES GLOBAIS
+// ======================================================
+
+export function createSectorTemplate(
+    data,
+    token
+) {
+    return apiRequest(
+        "/events/templates/sectors",
+        {
+            method: "POST",
+            body: data,
+            token,
+        }
+    );
+}
+
+export function createModalityTemplate(
+    data,
+    token
+) {
+    return apiRequest(
+        "/events/templates/modalities",
+        {
+            method: "POST",
+            body: data,
+            token,
+        }
+    );
+}
+
+// ======================================================
 // CONFIGURAÇÃO
 // ======================================================
 

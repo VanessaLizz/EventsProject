@@ -15,6 +15,7 @@ import ClientPage from "./pages/ClientPage.jsx";
 import OrganizerPage from "./pages/OrganizerPage.jsx";
 import OrganizerEventFormPage from "./pages/OrganizerEventFormPage.jsx";
 import OrganizerEventConfigurationPage from "./pages/OrganizerEventConfigurationPage.jsx";
+import OrganizerEventMetricsPage from "./pages/OrganizerEventMetricsPage.jsx";
 import CheckinPage from "./pages/CheckinPage.jsx";
 import NotFoundPage from "./pages/NotFoundPage.jsx";
 
@@ -120,6 +121,13 @@ export default function App() {
           path="/organizador/eventos/:eventId/configurar"
           element={
             <OrganizerEventConfigurationPage />
+          }
+        />
+
+        <Route
+          path="/organizador/eventos/:eventId/metricas"
+          element={
+            <OrganizerEventMetricsPage />
           }
         />
       </Route>

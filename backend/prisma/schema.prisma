@@ -175,32 +175,37 @@ model Event {
   externalId String?
   imageUrl   String?
 
-  // Capacidade física máxima absoluta do evento.
-  capacity Int
+  // Pode permanecer vazio enquanto o evento estiver em DRAFT.
+  // A publicação exigirá capacidade válida.
+  capacity Int?
 
   // Localização estruturada.
+  // Pode permanecer incompleta durante o rascunho.
   venueName String?
   address   String?
-  city      String
+  city      String?
   state     String?
-  country   String  @default("BR")
+  country   String @default("BR")
 
   latitude  Float?
   longitude Float?
 
-  dateTime DateTime
+  // Pode permanecer vazio durante o rascunho.
+  // Ex.: filme importado do TMDb ainda não possui
+  // data da sessão definida pelo organizador.
+  dateTime DateTime?
 
   // DRAFT, PUBLISHED, CANCELLED
   status String @default("DRAFT")
 
   organizerId        String
-  categoryTemplateId String
+  categoryTemplateId String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  organizer        User                  @relation(fields: [organizerId], references: [id])
-  categoryTemplate EventCategoryTemplate @relation(fields: [categoryTemplateId], references: [id])
+  organizer        User                   @relation(fields: [organizerId], references: [id])
+  categoryTemplate EventCategoryTemplate? @relation(fields: [categoryTemplateId], references: [id])
 
   sectors EventSector[]
 
@@ -209,6 +214,10 @@ model Event {
   @@index([city])
   @@index([dateTime])
   @@index([source])
+
+  // Impede que o mesmo organizador importe
+  // duas vezes o mesmo item da mesma fonte.
+  @@unique([organizerId, source, externalId])
 }
 
 // ======================================================

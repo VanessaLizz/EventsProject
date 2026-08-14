@@ -10652,3 +10652,1498 @@ criação de novas modalidades
 A Etapa 10 também ampliou a autonomia do Organizador na configuração dos eventos sem remover as regras de consistência e publicação implementadas anteriormente.
 
 Com isso, a **Etapa 10 — Busca Avançada, Filtros & Painel de Métricas** encontra-se concluída e o projeto está preparado para seguir para a **Etapa 11 — Cancelamento & Devolução ao Estoque**.
+
+# [Etapa 11] Integração com APIs Externas: TMDb & Ticketmaster
+
+**Status:** Concluído
+
+## Objetivo da Etapa
+
+Implementar a integração do Boraí com fontes externas de eventos, permitindo que o perfil `ORGANIZER` consulte eventos disponíveis no **TMDb** e na **Ticketmaster** e utilize essas informações como base para a criação de novos eventos dentro da plataforma.
+
+A etapa também definiu o fluxo de utilização dos dados externos, garantindo que nenhum evento seja criado ou publicado automaticamente apenas por ter sido selecionado em uma API externa.
+
+O Organizador passou a poder:
+
+- escolher o tipo de evento que deseja consultar;
+- visualizar eventos externos disponíveis;
+- consultar filmes através do TMDb;
+- consultar eventos através da Ticketmaster;
+- filtrar eventos por estado quando aplicável;
+- selecionar um ou mais resultados;
+- utilizar os dados externos como pré-preenchimento;
+- revisar e editar os dados antes da criação;
+- criar o evento inicialmente como `DRAFT`;
+- configurar o evento posteriormente;
+- publicar somente após o atendimento das regras obrigatórias;
+- visualizar separadamente Rascunhos, Publicados e Encerrados.
+
+---
+
+# 1. Integração com TMDb
+
+Foi implementada a integração com a API:
+
+```text
+TMDb
+The Movie Database
+```
+
+O TMDb é utilizado no Boraí como fonte externa para consulta de filmes.
+
+A integração permite recuperar informações que podem ser utilizadas como base para criação de eventos relacionados a cinema.
+
+---
+
+# 2. Credencial do TMDb
+
+A autenticação utiliza a variável:
+
+```env
+TMDB_ACCESS_TOKEN
+```
+
+A credencial real permanece no:
+
+```text
+.env
+```
+
+e não deve ser enviada ao repositório.
+
+No:
+
+```text
+.env.example
+```
+
+permanece somente um valor de exemplo:
+
+```env
+TMDB_ACCESS_TOKEN="your_tmdb_access_token_here"
+```
+
+---
+
+# 3. Serviço do TMDb
+
+Foi criado:
+
+```text
+backend/src/services/tmdbService.js
+```
+
+O serviço concentra:
+
+```text
+configuração da URL base
++
+autenticação
++
+requisições HTTP
++
+tratamento de erros
++
+normalização dos resultados
+```
+
+Isso mantém a comunicação com a API externa separada dos controllers.
+
+---
+
+# 4. Busca de filmes no TMDb
+
+Foi implementada a consulta através de:
+
+```text
+/search/movie
+```
+
+A busca utiliza:
+
+```text
+language = pt-BR
+include_adult = false
+```
+
+permitindo priorizar informações disponíveis em português do Brasil.
+
+---
+
+# 5. Normalização dos dados do TMDb
+
+Os resultados são convertidos para uma estrutura padronizada utilizada pelo Boraí.
+
+Entre os campos normalizados estão:
+
+```text
+externalId
+source
+title
+originalTitle
+description
+releaseDate
+imageUrl
+backdropUrl
+originalLanguage
+popularity
+voteAverage
+```
+
+A origem é identificada como:
+
+```text
+source = TMDB
+```
+
+---
+
+# 6. Imagens do TMDb
+
+Os caminhos de imagens retornados pela API são convertidos em URLs completas utilizando:
+
+```text
+https://image.tmdb.org/t/p/w500
+```
+
+São tratados:
+
+```text
+poster
+backdrop
+```
+
+permitindo apresentar imagens dos filmes no catálogo externo.
+
+---
+
+# 7. Consulta individual de filme
+
+Também foi implementada a consulta de um filme específico através do seu identificador externo:
+
+```text
+/movie/:movieId
+```
+
+Isso permite recuperar os detalhes do filme selecionado.
+
+---
+
+# 8. Integração com Ticketmaster
+
+Foi implementada também a integração com:
+
+```text
+Ticketmaster Discovery API
+```
+
+A Ticketmaster é utilizada como fonte para consulta de eventos externos diferentes dos conteúdos de cinema tratados pelo TMDb.
+
+---
+
+# 9. Credencial da Ticketmaster
+
+A integração utiliza:
+
+```env
+TICKETMASTER_API_KEY
+```
+
+A chave real permanece armazenada no:
+
+```text
+.env
+```
+
+No:
+
+```text
+.env.example
+```
+
+é mantido somente um valor fictício:
+
+```env
+TICKETMASTER_API_KEY="your_ticketmaster_api_key_here"
+```
+
+---
+
+# 10. Serviço da Ticketmaster
+
+Foi criado:
+
+```text
+backend/src/services/ticketmasterService.js
+```
+
+responsável por:
+
+```text
+configuração da URL base
++
+autenticação
++
+requisições
++
+tratamento de erros
++
+seleção de imagens
++
+normalização dos eventos
+```
+
+---
+
+# 11. Busca de eventos na Ticketmaster
+
+A consulta utiliza:
+
+```text
+/events.json
+```
+
+A integração foi configurada para trabalhar com eventos brasileiros utilizando:
+
+```text
+countryCode = BR
+locale = pt-br
+```
+
+---
+
+# 12. Normalização dos eventos da Ticketmaster
+
+Entre os dados normalizados estão:
+
+```text
+externalId
+source
+title
+description
+imageUrl
+date
+time
+venueName
+city
+state
+country
+category
+genre
+subGenre
+externalUrl
+```
+
+A origem é identificada como:
+
+```text
+source = TICKETMASTER
+```
+
+---
+
+# 13. Tratamento das imagens da Ticketmaster
+
+Como a Ticketmaster pode retornar várias imagens para o mesmo evento, foi implementada uma regra para selecionar uma imagem adequada.
+
+A preferência é por:
+
+```text
+ratio = 16_9
+```
+
+com resolução suficiente para utilização na interface.
+
+Quando essa opção não existe, outra imagem disponível pode ser utilizada como fallback.
+
+---
+
+# 14. Controller das APIs externas
+
+Foi criado:
+
+```text
+backend/src/controllers/externalEventController.js
+```
+
+para concentrar as operações relacionadas às fontes externas.
+
+O controller passou a trabalhar com:
+
+```text
+TMDb
++
+Ticketmaster
++
+catálogo externo
+```
+
+---
+
+# 15. Rotas específicas do TMDb
+
+Foram adicionadas:
+
+```text
+GET /events/external/tmdb/search
+GET /events/external/tmdb/:externalId
+```
+
+As rotas são protegidas por:
+
+```text
+authenticate
+authorize("ORGANIZER")
+```
+
+---
+
+# 16. Rotas específicas da Ticketmaster
+
+Foram adicionadas:
+
+```text
+GET /events/external/ticketmaster/search
+GET /events/external/ticketmaster/:externalId
+```
+
+Também protegidas por:
+
+```text
+authenticate
+authorize("ORGANIZER")
+```
+
+---
+
+# 17. Catálogo externo unificado
+
+Foi criada uma camada de catálogo externo para que o Front-End possa trabalhar com as duas fontes através de uma experiência integrada.
+
+O fluxo ficou:
+
+```text
+ORGANIZER
+   ↓
+Catálogo externo
+   ↓
+Escolha do tipo
+   ↓
+TMDb ou Ticketmaster
+   ↓
+Resultados normalizados
+```
+
+---
+
+# 18. Tipos disponíveis no catálogo
+
+Foi implementada:
+
+```text
+GET /events/external/catalog/types
+```
+
+A rota fornece ao Front-End os tipos disponíveis para consulta.
+
+O Organizador pode selecionar o tipo desejado antes de carregar os resultados.
+
+---
+
+# 19. Consulta do catálogo externo
+
+Foi implementada:
+
+```text
+GET /events/external/catalog
+```
+
+A consulta aceita parâmetros como:
+
+```text
+type
+state
+page
+query
+genreId
+```
+
+---
+
+# 20. Seleção por tipo
+
+O fluxo foi desenvolvido para permitir que o Organizador escolha primeiro o tipo de evento que deseja consultar.
+
+Exemplo:
+
+```text
+Importar eventos
+      ↓
+Escolher tipo
+      ↓
+Visualizar opções
+```
+
+Também é possível utilizar uma opção geral para visualizar diferentes resultados disponíveis.
+
+---
+
+# 21. Cinema através do TMDb
+
+Quando o tipo selecionado corresponde a cinema, o catálogo utiliza:
+
+```text
+TMDb
+```
+
+Os filmes encontrados são apresentados visualmente como opções para o Organizador.
+
+---
+
+# 22. Eventos através da Ticketmaster
+
+Os demais eventos integrados são consultados através da:
+
+```text
+Ticketmaster
+```
+
+Os resultados são normalizados antes de serem enviados ao Front-End.
+
+---
+
+# 23. Filtro por estado
+
+Para consultas aplicáveis à Ticketmaster, o Organizador pode selecionar um estado.
+
+Exemplo:
+
+```text
+Tipo: SPORTS
+Estado: SP
+```
+
+O filtro permite reduzir os resultados de acordo com a localização desejada.
+
+---
+
+# 24. Paginação
+
+O catálogo suporta:
+
+```text
+page
+```
+
+permitindo navegar entre diferentes páginas de resultados externos.
+
+---
+
+# 25. Interface do catálogo externo
+
+Foi criada uma página específica para consulta das APIs externas.
+
+O painel do Organizador passou a disponibilizar duas ações distintas:
+
+```text
++ Criar evento
++ Importar eventos
+```
+
+A criação manual permanece independente da utilização das APIs externas.
+
+---
+
+# 26. Resultados clicáveis
+
+Os resultados externos são apresentados como opções visuais.
+
+O Organizador pode:
+
+```text
+visualizar
++
+selecionar
++
+continuar
+```
+
+sem precisar informar manualmente o identificador técnico do evento.
+
+---
+
+# 27. Seleção múltipla
+
+Foi implementada a possibilidade de selecionar mais de um resultado externo.
+
+Isso permite:
+
+```text
+Evento A ✓
+Evento B ✓
+Evento C ✓
+```
+
+antes de iniciar o processo de revisão.
+
+---
+
+# 28. Revisão do conceito de importação
+
+Durante o desenvolvimento, o comportamento inicial da importação foi revisto.
+
+Foi definido que não deveria ocorrer:
+
+```text
+selecionar evento externo
+        ↓
+criar automaticamente
+        ↓
+publicar automaticamente
+```
+
+As APIs externas devem funcionar apenas como fontes auxiliares de dados.
+
+---
+
+# 29. Fluxo definitivo da integração externa
+
+O fluxo final ficou:
+
+```text
+TMDb / Ticketmaster
+        ↓
+Catálogo externo
+        ↓
+Organizador seleciona
+        ↓
+Dados carregados no formulário
+        ↓
+Organizador revisa
+        ↓
+Organizador edita/complementa
+        ↓
+Organizador confirma
+        ↓
+Evento criado como DRAFT
+```
+
+---
+
+# 30. Pré-preenchimento do formulário
+
+Os dados provenientes das APIs são utilizados para preencher automaticamente os campos compatíveis do formulário.
+
+Esses dados não são considerados definitivos.
+
+O Organizador continua podendo modificar as informações antes da criação.
+
+---
+
+# 31. Campos externos editáveis
+
+Informações como:
+
+```text
+título
+descrição
+categoria
+data
+horário
+local
+cidade
+estado
+capacidade
+imagem
+```
+
+podem ser revisadas ou complementadas.
+
+Isso permite adaptar um resultado externo ao evento que efetivamente será comercializado pelo Boraí.
+
+---
+
+# 32. Campos não fornecidos pelas APIs
+
+TMDb e Ticketmaster não fornecem necessariamente todas as informações exigidas pelo modelo interno.
+
+Campos ausentes podem ser preenchidos manualmente antes da criação.
+
+Assim, o modelo do Boraí não fica dependente da estrutura de nenhuma API externa.
+
+---
+
+# 33. Seleção múltipla e revisão individual
+
+Quando vários eventos são selecionados, cada um passa individualmente pelo formulário.
+
+Exemplo:
+
+```text
+Evento A
+Evento B
+Evento C
+```
+
+Fluxo:
+
+```text
+revisar A
+   ↓
+criar A
+   ↓
+revisar B
+   ↓
+criar B
+   ↓
+revisar C
+   ↓
+criar C
+```
+
+Nenhum dos eventos é criado somente por ter sido selecionado.
+
+---
+
+# 34. Eventos externos como DRAFT
+
+Todo evento efetivamente criado através desse fluxo inicia como:
+
+```text
+DRAFT
+```
+
+Não existe publicação automática.
+
+O comportamento é o mesmo utilizado pelos eventos criados manualmente.
+
+---
+
+# 35. Suporte a rascunhos incompletos
+
+Para suportar o novo fluxo, o modelo foi ajustado para permitir que um evento permaneça incompleto enquanto estiver em:
+
+```text
+DRAFT
+```
+
+Isso permite:
+
+```text
+criar
+   ↓
+salvar como rascunho
+   ↓
+editar
+   ↓
+configurar
+   ↓
+publicar posteriormente
+```
+
+---
+
+# 36. Migration para rascunhos incompletos
+
+Foi criada e aplicada uma migration relacionada ao suporte de eventos incompletos em rascunho:
+
+```text
+allow_incomplete_event_drafts
+```
+
+A alteração permitiu separar:
+
+```text
+requisitos para salvar DRAFT
+```
+
+de:
+
+```text
+requisitos para publicar PUBLISHED
+```
+
+---
+
+# 37. Validação antes da publicação
+
+As regras obrigatórias passaram a ser concentradas no momento da publicação.
+
+Um evento pode permanecer incompleto como:
+
+```text
+DRAFT
+```
+
+mas não pode passar para:
+
+```text
+PUBLISHED
+```
+
+sem atender às regras estruturais necessárias.
+
+---
+
+# 38. Validação dos setores
+
+Antes da publicação é obrigatório possuir pelo menos um setor.
+
+Também é validado:
+
+```text
+Σ capacidade dos setores
+=
+capacidade total do evento
+```
+
+---
+
+# 39. Validação das modalidades
+
+Cada setor precisa possuir pelo menos uma modalidade.
+
+Também é necessário:
+
+```text
+Σ capacidade das modalidades
+=
+capacidade do setor
+```
+
+---
+
+# 40. Validação das categorias
+
+Cada modalidade precisa possuir pelo menos uma categoria de preço configurada.
+
+Sem categorias, a publicação é bloqueada.
+
+---
+
+# 41. Validação dos lotes
+
+Cada modalidade precisa possuir pelo menos um lote.
+
+Também é validado:
+
+```text
+Σ quantidade dos lotes
+=
+capacidade da modalidade
+```
+
+---
+
+# 42. Validação dos preços
+
+Cada lote precisa possuir preço para todas as categorias configuradas na modalidade.
+
+Caso alguma categoria não possua preço correspondente, a publicação é bloqueada.
+
+---
+
+# 43. Validação das modalidades SEAT
+
+Quando:
+
+```text
+occupancyMode = SEAT
+```
+
+é necessário:
+
+```text
+quantidade de assentos
+=
+capacidade da modalidade
+```
+
+---
+
+# 44. Publicação manual
+
+Somente após todas as validações o evento pode passar de:
+
+```text
+DRAFT
+```
+
+para:
+
+```text
+PUBLISHED
+```
+
+A mudança ocorre somente após ação explícita do Organizador.
+
+---
+
+# 45. Organização do painel do Organizador
+
+O painel passou a separar os eventos em:
+
+```text
+RASCUNHOS
+PUBLICADOS
+ENCERRADOS
+```
+
+Essa organização facilita o acompanhamento do ciclo de vida dos eventos.
+
+---
+
+# 46. Rascunhos
+
+A seção:
+
+```text
+RASCUNHOS
+```
+
+contém eventos com:
+
+```text
+status = DRAFT
+```
+
+Eles podem continuar sendo editados e configurados.
+
+---
+
+# 47. Publicados
+
+A seção:
+
+```text
+PUBLICADOS
+```
+
+contém eventos publicados cuja realização ainda não ocorreu.
+
+---
+
+# 48. Encerrados
+
+A seção:
+
+```text
+ENCERRADOS
+```
+
+contém eventos cuja data já passou.
+
+Isso mantém o histórico separado dos eventos ainda ativos.
+
+---
+
+# 49. Ciclo de vida final
+
+O ciclo passou a ser representado por:
+
+```text
+RASCUNHO
+    ↓
+edição
+    ↓
+configuração
+    ↓
+validação
+    ↓
+PUBLICADO
+    ↓
+data ultrapassada
+    ↓
+ENCERRADO
+```
+
+---
+
+# 50. Serviço do Front-End
+
+O arquivo:
+
+```text
+frontend/src/services/eventService.js
+```
+
+foi ampliado para suportar as consultas externas.
+
+Entre as funções utilizadas estão:
+
+```text
+getExternalCatalogTypes
+getExternalCatalog
+searchTmdbEvents
+getTmdbEventById
+searchTicketmasterEvents
+getTicketmasterEventById
+```
+
+---
+
+# 51. Remoção da importação automática
+
+Após a definição do fluxo definitivo, a função de importação automática deixou de ser necessária.
+
+Foi removida do Front-End a função:
+
+```text
+importExternalEvents()
+```
+
+O fluxo passou a utilizar a criação normal do Organizador somente depois da revisão.
+
+Conceitualmente:
+
+```text
+API externa
+   ↓
+Front-End
+   ↓
+revisão
+   ↓
+createOrganizerEvent()
+   ↓
+DRAFT
+```
+
+---
+
+# 52. Ordem das rotas
+
+As rotas externas foram declaradas antes da rota dinâmica:
+
+```text
+/:eventId
+```
+
+evitando que caminhos como:
+
+```text
+/external/catalog
+/external/tmdb/search
+/external/ticketmaster/search
+```
+
+sejam interpretados como identificadores de eventos.
+
+---
+
+# 53. Proteção das rotas
+
+As operações externas destinadas ao Organizador permanecem protegidas por:
+
+```text
+authenticate
+authorize("ORGANIZER")
+```
+
+Isso mantém o catálogo externo como ferramenta do módulo de organização.
+
+---
+
+# 54. Problema de autenticação durante os testes
+
+Durante os testes foi encontrado retorno de token inválido.
+
+A autenticação foi validada através de:
+
+```text
+GET /auth/me
+```
+
+com retorno do usuário:
+
+```text
+role = ORGANIZER
+```
+
+Após a correção do token utilizado nas requisições, as rotas protegidas passaram a funcionar normalmente.
+
+---
+
+# 55. Problema de exportação do TMDb
+
+Durante a implementação ocorreu erro relacionado a:
+
+```text
+getTmdbMovieById
+```
+
+O controller tentava importar a função, mas o módulo não fornecia corretamente o export esperado.
+
+O serviço foi corrigido e o Back-End voltou a iniciar normalmente.
+
+---
+
+# 56. Problema de rota do catálogo
+
+Durante os testes ocorreu:
+
+```text
+Cannot GET /events/external/catalog
+```
+
+A rota ainda não estava registrada corretamente no conjunto de rotas dos eventos.
+
+Após sua inclusão, as consultas do catálogo passaram a funcionar.
+
+---
+
+# 57. Problema do Prisma Client no Windows
+
+Durante a atualização do schema ocorreu:
+
+```text
+EPERM: operation not permitted
+```
+
+relacionado ao arquivo:
+
+```text
+query_engine-windows.dll.node
+```
+
+O arquivo estava sendo utilizado por um processo em execução.
+
+Após interromper o processo correspondente e executar novamente a operação necessária, o Prisma Client voltou a funcionar normalmente.
+
+A migration foi aplicada e o banco permaneceu sincronizado.
+
+---
+
+# 58. Problema de imports duplicados no Front-End
+
+Durante a adaptação do formulário ocorreu erro de compilação indicando declarações duplicadas.
+
+Entre elas:
+
+```text
+createOrganizerEvent
+getEventTemplates
+getOrganizerEventById
+updateOrganizerEvent
+searchTmdbEvents
+```
+
+Os imports foram reorganizados e o arquivo voltou a compilar normalmente.
+
+---
+
+# 59. Preservação da criação manual
+
+A integração externa não substitui a criação manual.
+
+O Organizador continua podendo escolher:
+
+```text
+CRIAR EVENTO MANUALMENTE
+```
+
+ou:
+
+```text
+UTILIZAR EVENTO EXTERNO COMO BASE
+```
+
+Ambos os fluxos convergem para o mesmo modelo interno do Boraí.
+
+---
+
+# 60. Independência das APIs externas
+
+Após a criação do evento, sua estrutura interna não depende mais do TMDb ou da Ticketmaster.
+
+O fluxo é:
+
+```text
+TMDb / Ticketmaster
+        ↓
+dados iniciais
+        ↓
+EVENTO BORAÍ
+        ↓
+setores
+modalidades
+categorias
+lotes
+preços
+assentos
+```
+
+---
+
+# 61. Testes do TMDb
+
+Foram validados:
+
+- autenticação;
+- busca de filmes;
+- retorno de múltiplos resultados;
+- normalização;
+- título;
+- descrição;
+- data;
+- imagens;
+- idioma;
+- popularidade;
+- avaliação;
+- consulta individual pelo ID.
+
+---
+
+# 62. Testes da Ticketmaster
+
+Foram validados:
+
+- autenticação;
+- busca de eventos;
+- normalização;
+- imagens;
+- data;
+- horário;
+- local;
+- cidade;
+- estado;
+- país;
+- categoria;
+- gênero;
+- subgênero;
+- URL externa;
+- consulta individual pelo ID.
+
+---
+
+# 63. Testes do catálogo externo
+
+Foram testados:
+
+```text
+consulta dos tipos
+consulta geral
+consulta por tipo
+filtro por estado
+paginação
+TMDb através do catálogo
+Ticketmaster através do catálogo
+```
+
+As duas fontes responderam corretamente.
+
+---
+
+# 64. Teste ponta a ponta com TMDb
+
+Foi validado:
+
+```text
+Importar eventos
+        ↓
+Cinema
+        ↓
+selecionar filme
+        ↓
+formulário pré-preenchido
+        ↓
+revisar
+        ↓
+completar campos
+        ↓
+criar
+        ↓
+Rascunhos
+```
+
+O fluxo funcionou corretamente.
+
+---
+
+# 65. Teste ponta a ponta com Ticketmaster
+
+Foi validado:
+
+```text
+Importar eventos
+        ↓
+selecionar tipo
+        ↓
+selecionar estado
+        ↓
+selecionar evento
+        ↓
+formulário pré-preenchido
+        ↓
+revisar
+        ↓
+criar
+        ↓
+Rascunhos
+```
+
+O fluxo funcionou corretamente.
+
+---
+
+# 66. Teste de publicação incompleta
+
+Foi realizada uma tentativa de publicar um evento ainda incompleto.
+
+O Back-End bloqueou corretamente a publicação.
+
+O evento permaneceu:
+
+```text
+DRAFT
+```
+
+---
+
+# 67. Teste de publicação completa
+
+Após configurar corretamente:
+
+```text
+setores
+modalidades
+categorias
+lotes
+preços
+assentos quando necessários
+```
+
+a publicação foi realizada novamente.
+
+O evento passou de:
+
+```text
+DRAFT
+```
+
+para:
+
+```text
+PUBLISHED
+```
+
+e passou a aparecer em Publicados.
+
+---
+
+# 68. Teste dos eventos encerrados
+
+Também foi validado um evento publicado com data já ultrapassada.
+
+O evento passou a ser apresentado em:
+
+```text
+ENCERRADOS
+```
+
+confirmando a separação correta no painel.
+
+---
+
+# 69. Fluxo completo validado
+
+Ao final da Etapa 11 foi validado:
+
+```text
+ORGANIZER
+   ↓
+Importar eventos
+   ↓
+Escolher tipo
+   ↓
+Filtrar quando necessário
+   ↓
+Visualizar opções
+   ↓
+Selecionar
+   ↓
+Revisar
+   ↓
+Editar/complementar
+   ↓
+Criar
+   ↓
+DRAFT
+   ↓
+Configurar
+   ↓
+Validar
+   ↓
+Publicar manualmente
+   ↓
+PUBLISHED
+   ↓
+Data ultrapassada
+   ↓
+ENCERRADO
+```
+
+---
+
+# 70. Critério de aceite da Etapa 11
+
+O critério de aceite definido foi permitir que o Organizador utilize **TMDb e Ticketmaster como fontes auxiliares para criação de eventos**, mantendo controle manual sobre os dados e sobre a publicação.
+
+Ao final foi validado:
+
+```text
+TMDb funcionando
++
+Ticketmaster funcionando
++
+catálogo externo funcionando
++
+seleção por tipo
++
+filtro por estado
++
+paginação
++
+seleção visual
++
+seleção múltipla
++
+pré-preenchimento
++
+revisão
++
+edição
++
+criação como DRAFT
++
+nenhuma publicação automática
++
+validação antes da publicação
++
+publicação manual
++
+Rascunhos / Publicados / Encerrados
+```
+
+O critério de aceite foi atendido.
+
+---
+
+# 71. Uso de IA nesta Etapa
+
+## Geração e Refatoração de Código
+
+A IA foi utilizada como apoio na implementação e revisão de:
+
+- serviço do TMDb;
+- serviço da Ticketmaster;
+- controllers;
+- rotas;
+- catálogo externo;
+- integração com o Front-End;
+- formulário de criação;
+- organização do painel;
+- suporte a rascunhos;
+- validações de publicação.
+
+## Integração de APIs
+
+A IA auxiliou na estruturação das requisições para:
+
+```text
+TMDb
+Ticketmaster Discovery API
+```
+
+e na normalização dos dados externos para utilização pelo Boraí.
+
+## Resolução de Problemas
+
+A IA auxiliou no diagnóstico de:
+
+- export inexistente no serviço do TMDb;
+- erro de inicialização do Back-End;
+- autenticação JWT;
+- rota de catálogo inexistente;
+- bloqueio do Prisma Client no Windows;
+- imports duplicados no Front-End;
+- comportamento incorreto da importação automática;
+- validações necessárias antes da publicação.
+
+## Decisões Humanas / Manuais
+
+Foram realizadas manualmente:
+
+- criação e configuração das credenciais;
+- escolha de utilizar TMDb e Ticketmaster;
+- definição do TMDb para filmes;
+- definição da Ticketmaster para outros eventos;
+- escolha da navegação por tipo;
+- escolha do filtro por estado;
+- definição dos resultados como opções clicáveis;
+- decisão de permitir seleção múltipla;
+- decisão de não criar eventos automaticamente;
+- decisão de não publicar eventos automaticamente;
+- definição do pré-preenchimento do formulário;
+- definição da revisão individual;
+- definição da criação como `DRAFT`;
+- definição das áreas Rascunhos, Publicados e Encerrados;
+- execução dos testes das duas APIs;
+- execução dos testes do catálogo;
+- validação do fluxo ponta a ponta;
+- validação da publicação incompleta;
+- validação da publicação completa;
+- validação dos eventos encerrados.
+
+A IA foi utilizada como ferramenta de apoio ao desenvolvimento, enquanto as decisões de produto e as validações finais permaneceram sob avaliação humana.
+
+---
+
+# Resultado da Etapa 11
+
+Ao final da Etapa 11, o Boraí passou a possuir integração funcional com:
+
+```text
+TMDb
++
+Ticketmaster
+```
+
+O Organizador passou a contar com:
+
+```text
+criação manual
++
+catálogo externo
++
+seleção por tipo
++
+filtro por estado
++
+paginação
++
+seleção visual
++
+seleção múltipla
++
+pré-preenchimento
++
+revisão
++
+edição
++
+DRAFT
++
+configuração
++
+validação
++
+publicação manual
++
+Rascunhos / Publicados / Encerrados
+```
+
+As APIs externas funcionam apenas como fontes auxiliares de informações.
+
+A criação e a publicação continuam sob controle do Organizador e seguem as regras internas do Boraí.
+
+Com isso, a **Etapa 11 — Integração com APIs Externas: TMDb & Ticketmaster** foi concluída e validada.

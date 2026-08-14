@@ -8212,3 +8212,578 @@ visualização pública do evento
 ```
 
 Com isso, o módulo de Organização e Criação de Eventos encontra-se concluído e o projeto está preparado para continuar com a interface de seleção de ingressos e checkout.
+
+[Etapa 7] Front-End: Seleção de Ingressos & Checkout Simulado
+
+Status: Concluído
+
+Objetivo da Etapa
+
+Conectar a página pública de detalhes do evento ao núcleo de checkout já existente no Back-End, permitindo que o perfil CLIENT selecione ingressos, revise os valores da compra e conclua o fluxo de pagamento simulado.
+
+A Etapa 7 passou a contemplar dois comportamentos de venda:
+
+QUANTITY
+→ seleção por categoria e quantidade
+
+SEAT
+→ seleção de assentos individuais
+→ definição da categoria de preço de cada assento
+
+Também foi mantida a integração com as regras de estoque, capacidade, cotas, reservas e concorrência implementadas anteriormente no Back-End.
+
+1. Ajuste da resposta pública dos eventos
+
+A API pública de detalhes do evento foi ajustada para fornecer os dados necessários à compra sem expor ao Cliente toda a estrutura interna de lotes.
+
+Para modalidades SEAT, a resposta pública passou a incluir os assentos disponíveis com os campos necessários para a seleção visual.
+
+A consulta utiliza apenas dados válidos do modelo de assento, incluindo:
+
+id
+label
+normalizedLabel
+isAvailable
+
+Esse ajuste permitiu que a página pública apresentasse os assentos disponíveis diretamente ao comprador.
+
+2. Lote vigente
+
+Foi implementada uma regra para identificar o lote atualmente em venda em cada modalidade.
+
+A identificação considera:
+
+lotes ativos
++
+ordem/sequence
++
+quantidade do lote
++
+Tickets VALID ou USED já vendidos
+
+O primeiro lote ativo que ainda possuir estoque é tratado como o lote vigente.
+
+Exemplo:
+
+LOTE 1
+Quantidade: 400
+Vendidos: 400
+→ esgotado
+
+LOTE 2
+Quantidade: 400
+Vendidos: 50
+→ lote vigente
+
+O Front-End não precisa decidir qual lote deve ser utilizado.
+
+Essa responsabilidade permanece no Back-End.
+
+3. Lotes não são exibidos ao comprador
+
+Foi decidido que o Cliente não deve visualizar informações como:
+
+LOTE 1
+LOTE 2
+LOTE 3
+
+Essas informações permanecem úteis para controle comercial do Organizador, mas não fazem parte da experiência de compra.
+
+Na página pública são apresentados somente:
+
+categoria do ingresso
++
+preço atualmente vigente
+
+Exemplo:
+
+INTEIRA       R$ 500,00
+MEIA          R$ 300,00
+MEIA SOCIAL   R$ 300,00
+
+Quando o lote atual se esgota, o Back-End passa automaticamente a fornecer os preços do próximo lote disponível.
+
+4. Validação do lote no checkout
+
+Além de informar somente o lote vigente na API pública, o Back-End passou a validar o lote também ao iniciar e concluir o checkout.
+
+Foi criada lógica compartilhada para:
+
+getCurrentBatchForModality()
+validateCurrentBatch()
+
+Assim, não é suficiente enviar manualmente um ticketBatchPriceId pertencente a um lote ativo.
+
+O lote do preço precisa ser o lote realmente vigente naquele momento.
+
+Caso o preço tenha ficado desatualizado, o checkout é rejeitado e o Cliente precisa atualizar a seleção.
+
+Essa validação reduz o risco de compra utilizando preço antigo ou lote futuro.
+
+5. Seleção de ingressos QUANTITY
+
+Para modalidades QUANTITY, a página passou a apresentar cada categoria de preço com controle de quantidade.
+
+Exemplo:
+
+INTEIRA       R$ 220,00    [-] 2 [+]
+MEIA          R$ 110,00    [-] 1 [+]
+MEIA SOCIAL   R$ 140,00    [-] 0 [+]
+
+O Cliente pode aumentar ou diminuir a quantidade antes de iniciar o checkout.
+
+A seleção respeita:
+
+limite máximo de 10 ingressos por compra;
+
+quantidade disponível no lote vigente;
+
+validações definitivas do Back-End durante o checkout.
+
+A modalidade QUANTITY continua sem bloquear estoque durante a criação da sessão, conforme a regra definida na Etapa 4.
+
+6. Seleção de ingressos SEAT
+
+Para modalidades SEAT, foi criada seleção visual dos assentos disponíveis.
+
+O Cliente pode selecionar vários assentos antes de definir o tipo de ingresso.
+
+Fluxo adotado:
+
+selecionar assentos
+       ↓
+A1, A2, A3...
+       ↓
+definir individualmente a categoria de cada assento
+       ↓
+continuar para checkout
+
+Essa organização substituiu a primeira abordagem, na qual uma categoria era escolhida antes dos assentos.
+
+A nova experiência permite, por exemplo:
+
+A1 → INTEIRA
+A2 → MEIA
+A3 → MEIA SOCIAL
+
+na mesma compra.
+
+7. Categoria individual por assento
+
+Cada assento selecionado mantém sua própria associação com um ticketBatchPriceId.
+
+Dessa forma, assentos da mesma modalidade podem utilizar categorias diferentes na mesma compra.
+
+O Front-End impede o início do checkout enquanto existir um assento selecionado sem categoria definida.
+
+A estrutura enviada ao Back-End agrupa os assentos pela opção de preço correspondente.
+
+Exemplo conceitual:
+
+INTEIRA
+→ seatIds: [A1]
+
+MEIA
+→ seatIds: [A2]
+
+MEIA SOCIAL
+→ seatIds: [A3]
+
+8. Limite máximo de 10 ingressos
+
+O limite definido no Back-End também passou a ser aplicado visualmente no Front-End.
+
+Regra:
+
+máximo de 10 ingressos por checkout
+
+O contador considera conjuntamente:
+
+ingressos QUANTITY;
+
+assentos SEAT;
+
+diferentes categorias;
+
+diferentes modalidades do mesmo evento.
+
+Ao atingir 10 ingressos, a interface impede a seleção do 11º.
+
+O Back-End continua realizando sua própria validação independentemente do bloqueio visual.
+
+9. Resumo da compra
+
+A página de detalhes passou a possuir um resumo da compra contendo:
+
+quantidade total de ingressos
+subtotal
+taxa de serviço
+total
+
+O subtotal é atualizado conforme as quantidades e categorias selecionadas.
+
+Para SEAT, o valor considera a categoria atribuída individualmente a cada assento.
+
+10. Taxa de serviço
+
+Foi mantida a regra definida anteriormente:
+
+12%
+
+A taxa é calculada separadamente do subtotal e adicionada ao total da compra.
+
+O cálculo definitivo continua sendo realizado pelo Back-End na conclusão da compra.
+
+Melhoria visual registrada
+
+Foi decidido que, em uma revisão futura do componente de resumo, a interface não deverá destacar a porcentagem da taxa ao comprador.
+
+A cobrança e o cálculo permanecem inalterados; a mudança prevista é apenas de apresentação, mantendo:
+
+Taxa de serviço    R$ ...
+
+sem exibir o texto percentual ao lado.
+
+Essa alteração visual não foi tratada isoladamente para evitar modificar o componente apenas por esse detalhe e não impede o encerramento da Etapa 7.
+
+11. Autenticação para compra
+
+O catálogo e os detalhes do evento continuam públicos.
+
+Entretanto, ao iniciar a compra, o usuário precisa estar autenticado com:
+
+role = CLIENT
+
+Caso não esteja autenticado, o fluxo direciona para o login antes de continuar.
+
+Perfis diferentes de CLIENT não podem executar o checkout.
+
+12. Integração do Front-End com o checkout
+
+Foi criado serviço específico no Front-End para comunicação com os endpoints de checkout.
+
+Fluxos utilizados:
+
+POST /checkout
+POST /checkout/:checkoutId/complete
+
+O Front-End envia a seleção preparada de acordo com o tipo de modalidade.
+
+QUANTITY
+
+ticketBatchPriceId
+quantity
+
+SEAT
+
+ticketBatchPriceId
+seatIds[]
+
+13. Reserva de assentos
+
+Ao iniciar um checkout contendo modalidade SEAT, o Back-End mantém a regra de reserva temporária já implementada.
+
+O assento selecionado fica indisponível durante a sessão.
+
+Prazo:
+
+10 minutos
+
+A interface informa ao Cliente que os assentos estão temporariamente reservados enquanto o checkout estiver ativo.
+
+14. Pagamento simulado
+
+A interface passou a permitir a execução do pagamento simulado com os dois resultados suportados pelo Back-End:
+
+APPROVED
+REFUSED
+
+Isso permite validar o fluxo completo sem integração com um gateway de pagamento externo.
+
+15. Pagamento aprovado
+
+O cenário APPROVED foi testado manualmente através do Front-End.
+
+Resultado confirmado:
+
+checkout iniciado
+       ↓
+pagamento aprovado
+       ↓
+pedido criado
+       ↓
+Tickets criados
+       ↓
+compra concluída
+
+Após a compra:
+
+a disponibilidade de QUANTITY é atualizada;
+
+assentos comprados deixam de aparecer entre os disponíveis;
+
+o resumo de sucesso apresenta os dados principais do pedido.
+
+16. Pagamento recusado
+
+O cenário REFUSED também foi testado manualmente através do Front-End.
+
+Resultado confirmado:
+
+compra não é concluída;
+
+Tickets válidos não são criados;
+
+checkout é cancelado;
+
+assentos temporariamente reservados são liberados;
+
+o estoque não é consumido pela tentativa recusada.
+
+17. Atualização da disponibilidade após compra
+
+Após uma compra aprovada, a página pública pode buscar novamente os dados do evento.
+
+Isso permite refletir imediatamente alterações como:
+
+redução do estoque disponível
+
+ou:
+
+remoção de assento vendido da lista de disponíveis
+
+A disponibilidade pública permanece baseada nos dados reais do Back-End.
+
+18. Concorrência
+
+A lógica de concorrência permanece protegida pelo Back-End desenvolvido e testado na Etapa 4.
+
+Para SEAT:
+
+mesmo assento
+→ apenas um checkout consegue efetivar o bloqueio
+
+Para QUANTITY:
+
+múltiplos checkouts podem começar
+→ estoque é validado na finalização
+→ first-to-complete wins
+
+O teste de concorrência não foi repetido manualmente durante o encerramento visual da Etapa 7, pois a regra já havia sido validada diretamente no núcleo do Back-End.
+
+19. Arquivos envolvidos na Etapa 7
+
+Entre os arquivos criados ou modificados durante a implementação estão:
+
+backend/src/controllers/eventController.js
+backend/src/controllers/checkoutController.js
+backend/src/services/checkoutService.js
+frontend/src/pages/EventDetailsPage.jsx
+frontend/src/pages/EventDetailsCheckout.css
+frontend/src/services/checkoutService.js
+
+A Etapa também utilizou serviços e estruturas existentes de autenticação, eventos e checkout.
+
+20. Testes funcionais realizados
+
+Foram validados manualmente no Front-End:
+
+evento publicado continua carregando normalmente;
+
+imagens e informações públicas preservadas;
+
+somente o lote vigente é utilizado na venda;
+
+nome/número do lote não é apresentado ao Cliente;
+
+preços do lote vigente são apresentados;
+
+seleção QUANTITY funciona;
+
+aumento e redução de quantidade funcionam;
+
+seleção de múltiplos assentos funciona;
+
+remoção de assento selecionado funciona;
+
+categoria individual por assento funciona;
+
+subtotal é atualizado;
+
+taxa de serviço é calculada;
+
+total é atualizado;
+
+limite visual de 10 ingressos funciona;
+
+Cliente autenticado consegue iniciar checkout;
+
+pagamento aprovado funciona;
+
+pagamento recusado funciona;
+
+compra aprovada atualiza estoque;
+
+assento comprado deixa de aparecer disponível;
+
+pagamento recusado não consome a compra;
+
+reservas e concorrência permanecem protegidas pelo Back-End já validado.
+
+21. Problemas encontrados e correções
+
+Durante a Etapa 7 foram corrigidos problemas relacionados a:
+
+campos inexistentes na consulta de assentos
+retorno público inicialmente causando evento indisponível
+exibição de todos os lotes ao Cliente
+validação insuficiente do lote vigente
+seleção inicial de categoria para SEAT pouco flexível
+necessidade de categoria diferente para cada assento
+integração do checkout com usuário CLIENT
+
+A abordagem final manteve as decisões de estoque e lote no Back-End e deixou o Front-End responsável principalmente pela seleção e apresentação ao usuário.
+
+22. Decisões Humanas / Manuais
+
+Durante a implementação foram definidas e validadas manualmente as seguintes decisões:
+
+não mostrar os nomes dos lotes ao comprador;
+
+mostrar somente os preços atualmente em venda;
+
+manter a progressão de lote como responsabilidade do Back-End;
+
+selecionar primeiro os assentos e somente depois definir a categoria de cada um;
+
+permitir categorias diferentes para assentos da mesma compra;
+
+manter o limite máximo de 10 ingressos também na interface;
+
+manter autenticação obrigatória apenas no início efetivo do checkout;
+
+preservar o catálogo e detalhes públicos sem exigir login;
+
+manter o cálculo da taxa no Back-End;
+
+registrar como melhoria visual futura a remoção da porcentagem exibida ao lado da taxa de serviço;
+
+validar manualmente os cenários de pagamento aprovado e recusado;
+
+não repetir no encerramento da etapa o teste de concorrência já validado anteriormente no Back-End.
+
+23. Uso de IA nesta Etapa
+
+Geração e Refatoração de Código
+
+A IA foi utilizada como apoio na implementação e revisão de:
+
+consultas Prisma para detalhes públicos;
+
+lógica de lote vigente;
+
+validação de lote no checkout;
+
+serviços de checkout do Front-End;
+
+seleção por quantidade;
+
+seleção visual de assentos;
+
+associação de categoria por assento;
+
+resumo financeiro;
+
+CSS responsivo da área de compra.
+
+Resolução de Problemas
+
+A IA auxiliou na investigação de:
+
+evento ficando indisponível após consulta de campos inexistentes;
+
+estrutura dos dados públicos de assentos;
+
+diferença entre lote ativo e lote vigente;
+
+exposição indevida de múltiplos lotes na interface;
+
+envio dos itens QUANTITY e SEAT ao checkout;
+
+organização do fluxo de seleção de assentos e categorias.
+
+Testes
+
+A IA foi utilizada para orientar os cenários de teste do fluxo completo, enquanto a execução e a confirmação dos resultados foram realizadas manualmente.
+
+24. Critério de aceite da Etapa 7
+
+O critério original da Etapa 7 era permitir que o Cliente concluísse uma compra através do Front-End, incluindo seleção de pista ou assento, reserva quando aplicável e tratamento de sucesso ou erro.
+
+Ao final da implementação foi validado:
+
+CLIENT
+   ↓
+abre evento publicado
+   ↓
+visualiza preços do lote vigente
+   ↓
+seleciona QUANTITY ou SEAT
+   ↓
+para SEAT, escolhe os assentos
+   ↓
+define a categoria de cada assento
+   ↓
+respeita limite de 10 ingressos
+   ↓
+revisa subtotal, taxa e total
+   ↓
+inicia checkout
+   ↓
+pagamento simulado
+   ↓
+APPROVED ou REFUSED
+   ↓
+estoque/assentos atualizados conforme o resultado
+
+Portanto, o critério principal da Etapa 7 foi atendido.
+
+Resultado da Etapa 7
+
+Ao término da Etapa 7, o Boraí passou a possuir um fluxo funcional de compra de ingressos no Front-End para o perfil CLIENT.
+
+O fluxo implementado permite:
+
+catálogo público
++
+detalhes do evento
++
+lote vigente automático
++
+preços atualmente em venda
++
+QUANTITY
++
+SEAT
++
+categoria individual por assento
++
+limite de 10 ingressos
++
+resumo financeiro
++
+autenticação do Cliente
++
+checkout
++
+reserva de assentos
++
+pagamento simulado
++
+sucesso
++
+recusa
++
+atualização de disponibilidade
+
+Com isso, a Etapa 7 — Seleção de Ingressos & Checkout Simulado encontra-se concluída e o projeto está preparado para seguir para a Etapa 8 — Meus Ingressos & Visualização de QR Code.

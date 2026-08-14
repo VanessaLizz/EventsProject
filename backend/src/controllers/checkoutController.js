@@ -6,6 +6,7 @@ import {
     expireCheckoutIfNecessary,
     releaseSessionSeats,
     validateCheckoutStock,
+    validateCurrentBatch,
 } from "../services/checkoutService.js";
 
 import {
@@ -59,6 +60,7 @@ async function releaseExpiredSeatHolds(
                     lte: now,
                 },
             },
+
             include: {
                 items: true,
             },
@@ -74,6 +76,7 @@ async function releaseExpiredSeatHolds(
             where: {
                 id: session.id,
             },
+
             data: {
                 status: "EXPIRED",
             },
@@ -90,7 +93,9 @@ export async function startCheckout(
     res
 ) {
     try {
-        const { items } = req.body;
+        const {
+            items,
+        } = req.body;
 
         if (
             !Array.isArray(items) ||
@@ -103,12 +108,14 @@ export async function startCheckout(
         }
 
         const totalRequested =
-            calculateRequestedTickets(items);
+            calculateRequestedTickets(
+                items
+            );
 
         if (
             totalRequested < 1 ||
             totalRequested >
-            MAX_TICKETS_PER_CHECKOUT
+                MAX_TICKETS_PER_CHECKOUT
         ) {
             return res.status(400).json({
                 message:
@@ -135,6 +142,7 @@ export async function startCheckout(
                             id:
                                 item.ticketBatchPriceId,
                         },
+
                         include: {
                             ticketBatch: {
                                 include: {
@@ -148,12 +156,14 @@ export async function startCheckout(
                                                         true,
                                                 },
                                             },
+
                                             modalityTemplate:
                                                 true,
                                         },
                                     },
                                 },
                             },
+
                             eventTicketCategory: {
                                 include: {
                                     priceCategoryTemplate: {
@@ -181,8 +191,47 @@ export async function startCheckout(
             ) {
                 return res.status(409).json({
                     message:
-                        "Um dos lotes selecionados não está disponível.",
+                        "Um dos ingressos selecionados não está mais disponível.",
                 });
+            }
+
+            // ==========================================
+            // GARANTE QUE O PREÇO PERTENCE AO
+            // LOTE ATUALMENTE EM VENDA
+            // ==========================================
+
+            try {
+                await validateCurrentBatch(
+                    prisma,
+                    ticketBatchPrice
+                        .ticketBatch
+                );
+            } catch (error) {
+                if (
+                    error.message ===
+                    "BATCH_NOT_CURRENT"
+                ) {
+                    return res
+                        .status(409)
+                        .json({
+                            message:
+                                "O preço deste ingresso mudou. Atualize a página para visualizar o valor atual.",
+                        });
+                }
+
+                if (
+                    error.message ===
+                    "MODALITY_SOLD_OUT"
+                ) {
+                    return res
+                        .status(409)
+                        .json({
+                            message:
+                                "Os ingressos desta modalidade estão esgotados.",
+                        });
+                }
+
+                throw error;
             }
 
             requestedPrices.push({
@@ -192,16 +241,23 @@ export async function startCheckout(
             });
         }
 
-        const eventIds = new Set(
-            requestedPrices.map(
-                ({ data }) =>
-                    data.ticketBatch
-                        .eventSectorModality
-                        .eventSector.event.id
-            )
-        );
+        const eventIds =
+            new Set(
+                requestedPrices.map(
+                    ({
+                        data,
+                    }) =>
+                        data
+                            .ticketBatch
+                            .eventSectorModality
+                            .eventSector
+                            .event.id
+                )
+            );
 
-        if (eventIds.size !== 1) {
+        if (
+            eventIds.size !== 1
+        ) {
             return res.status(400).json({
                 message:
                     "Os ingressos de uma mesma compra devem pertencer ao mesmo evento.",
@@ -228,7 +284,7 @@ export async function startCheckout(
                 if (
                     request.seatIds &&
                     request.seatIds.length >
-                    0
+                        0
                 ) {
                     return res.status(400).json({
                         message:
@@ -261,8 +317,8 @@ export async function startCheckout(
                     !Array.isArray(
                         request.seatIds
                     ) ||
-                    request.seatIds
-                        .length === 0
+                    request.seatIds.length ===
+                        0
                 ) {
                     return res.status(400).json({
                         message:
@@ -294,7 +350,8 @@ export async function startCheckout(
             });
         }
 
-        const now = new Date();
+        const now =
+            new Date();
 
         const expiresAt =
             containsSeat
@@ -309,14 +366,33 @@ export async function startCheckout(
                         now
                     );
 
+                    // ==================================
+                    // CONFERE NOVAMENTE O LOTE DENTRO
+                    // DA TRANSAÇÃO
+                    // ==================================
+
+                    for (
+                        const {
+                            data,
+                        }
+                        of requestedPrices
+                    ) {
+                        await validateCurrentBatch(
+                            tx,
+                            data.ticketBatch
+                        );
+                    }
+
                     const session =
                         await tx.checkoutSession
                             .create({
                                 data: {
                                     clientId:
                                         req.user.id,
+
                                     status:
                                         "ACTIVE",
+
                                     expiresAt,
                                 },
                             });
@@ -346,10 +422,13 @@ export async function startCheckout(
                                     data: {
                                         checkoutSessionId:
                                             session.id,
+
                                         ticketBatchPriceId:
                                             data.id,
+
                                         quantity:
                                             request.quantity,
+
                                         seatId:
                                             null,
                                     },
@@ -396,6 +475,7 @@ export async function startCheckout(
                                     .findFirst({
                                         where: {
                                             seatId,
+
                                             status: {
                                                 in: [
                                                     "VALID",
@@ -405,7 +485,9 @@ export async function startCheckout(
                                         },
                                     });
 
-                            if (soldTicket) {
+                            if (
+                                soldTicket
+                            ) {
                                 throw new Error(
                                     "SEAT_UNAVAILABLE"
                                 );
@@ -417,9 +499,11 @@ export async function startCheckout(
                                         where: {
                                             id:
                                                 seatId,
+
                                             isAvailable:
                                                 true,
                                         },
+
                                         data: {
                                             isAvailable:
                                                 false,
@@ -440,9 +524,12 @@ export async function startCheckout(
                                     data: {
                                         checkoutSessionId:
                                             session.id,
+
                                         ticketBatchPriceId:
                                             data.id,
+
                                         seatId,
+
                                         quantity:
                                             1,
                                     },
@@ -456,6 +543,7 @@ export async function startCheckout(
                                 id:
                                     session.id,
                             },
+
                             include: {
                                 items:
                                     true,
@@ -471,14 +559,19 @@ export async function startCheckout(
             checkout: {
                 id:
                     checkoutSession.id,
+
                 status:
                     checkoutSession.status,
+
                 totalTickets:
                     totalRequested,
+
                 maxTickets:
                     MAX_TICKETS_PER_CHECKOUT,
+
                 expiresAt:
                     checkoutSession.expiresAt,
+
                 items:
                     checkoutSession.items,
             },
@@ -514,6 +607,26 @@ export async function startCheckout(
             });
         }
 
+        if (
+            error.message ===
+            "BATCH_NOT_CURRENT"
+        ) {
+            return res.status(409).json({
+                message:
+                    "O preço deste ingresso mudou. Atualize a página para visualizar o valor atual.",
+            });
+        }
+
+        if (
+            error.message ===
+            "MODALITY_SOLD_OUT"
+        ) {
+            return res.status(409).json({
+                message:
+                    "Os ingressos desta modalidade estão esgotados.",
+            });
+        }
+
         console.error(
             "Erro ao iniciar checkout:",
             error
@@ -535,17 +648,21 @@ export async function completeCheckout(
     res
 ) {
     try {
-        const { checkoutId } =
-            req.params;
+        const {
+            checkoutId,
+        } = req.params;
 
-        const { paymentStatus } =
-            req.body;
+        const {
+            paymentStatus,
+        } = req.body;
 
         if (
             ![
                 "APPROVED",
                 "REFUSED",
-            ].includes(paymentStatus)
+            ].includes(
+                paymentStatus
+            )
         ) {
             return res.status(400).json({
                 message:
@@ -562,9 +679,11 @@ export async function completeCheckout(
                                 where: {
                                     id:
                                         checkoutId,
+
                                     clientId:
                                         req.user.id,
                                 },
+
                                 include: {
                                     items: {
                                         include: {
@@ -584,6 +703,7 @@ export async function completeCheckout(
                                                             },
                                                         },
                                                     },
+
                                                     eventTicketCategory: {
                                                         include: {
                                                             priceCategoryTemplate: {
@@ -596,6 +716,7 @@ export async function completeCheckout(
                                                     },
                                                 },
                                             },
+
                                             seat:
                                                 true,
                                         },
@@ -653,6 +774,7 @@ export async function completeCheckout(
                                     id:
                                         session.id,
                                 },
+
                                 data: {
                                     status:
                                         "CANCELLED",
@@ -660,7 +782,8 @@ export async function completeCheckout(
                             });
 
                         return {
-                            refused: true,
+                            refused:
+                                true,
                         };
                     }
 
@@ -710,12 +833,17 @@ export async function completeCheckout(
                             data: {
                                 clientId:
                                     req.user.id,
+
                                 status:
                                     "APPROVED",
+
                                 subtotalInCents,
+
                                 serviceFeeRateBps:
                                     SERVICE_FEE_RATE_BPS,
+
                                 serviceFeeInCents,
+
                                 totalInCents,
                             },
                         });
@@ -740,6 +868,7 @@ export async function completeCheckout(
                             const qrToken =
                                 createTicketQrToken({
                                     ticketId,
+
                                     orderId:
                                         order.id,
                                 });
@@ -781,6 +910,7 @@ export async function completeCheckout(
                                 id:
                                     session.id,
                             },
+
                             data: {
                                 status:
                                     "COMPLETED",
@@ -881,6 +1011,7 @@ export async function completeCheckout(
             [
                 "BATCH_UNAVAILABLE",
                 "BATCH_SOLD_OUT",
+                "BATCH_NOT_CURRENT",
                 "MODALITY_SOLD_OUT",
                 "SECTOR_SOLD_OUT",
                 "EVENT_SOLD_OUT",

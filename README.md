@@ -35,10 +35,9 @@ A aplicação possui três perfis principais:
 - [x] **Etapa 4** — Reservas, checkout, pagamento simulado, QR Code e validação de ingressos no Back-End
 - [x] **Etapa 5** — Front-End: autenticação, catálogo público e estrutura dos perfis
 - [x] **Etapa 6** — Módulo do Organizador, criação, configuração e publicação de eventos
+- [x] **Etapa 7** — Seleção de ingressos e checkout no Front-End
 
 ## Próximas etapas
-
-- [ ] **Etapa 7** — Seleção de ingressos e checkout no Front-End
 - [ ] **Etapa 8** — Meus Ingressos e QR Code
 - [ ] **Etapa 9** — Portal da Portaria
 - [ ] **Etapa 10** — Busca avançada, filtros e métricas
@@ -106,6 +105,64 @@ Detalhes de um evento.
 ```
 
 Autenticação.
+
+---
+
+# Seleção de Ingressos e Checkout
+
+A Etapa 7 implementou o fluxo de compra no Front-End para o perfil CLIENT.
+
+Na página de detalhes de um evento publicado, o Cliente pode:
+
+- visualizar somente os preços do lote atualmente em venda;
+- selecionar ingressos de modalidades QUANTITY;
+- aumentar ou reduzir quantidades por categoria;
+- selecionar múltiplos assentos em modalidades SEAT;
+- definir individualmente cada assento como Inteira, Meia, Meia Social ou outra categoria disponível;
+- selecionar no máximo 10 ingressos por checkout;
+- visualizar subtotal, taxa de serviço e total;
+- iniciar o checkout autenticado;
+- executar pagamento simulado aprovado ou recusado;
+- visualizar a confirmação da compra;
+- receber a disponibilidade atualizada após a conclusão.
+
+Os nomes e números dos lotes não são apresentados ao comprador. O Back-End identifica automaticamente o lote vigente e disponibiliza somente os preços que podem ser vendidos naquele momento.
+
+Fluxo principal:
+
+```text
+Evento publicado
+↓
+Selecionar ingressos
+↓
+QUANTITY ou SEAT
+↓
+Quantidade ou assentos
+↓
+Categoria de preço
+↓
+Máximo de 10 ingressos
+↓
+Login CLIENT
+↓
+Checkout
+↓
+Subtotal + taxa + total
+↓
+Pagamento simulado
+↓
+APPROVED ou REFUSED
+```
+
+Para SEAT, cada assento selecionado pode possuir uma categoria de preço diferente.
+
+Exemplo:
+
+```text
+A1 → INTEIRA
+A2 → MEIA
+A3 → MEIA SOCIAL
+```
 
 ---
 
@@ -219,33 +276,33 @@ O fluxo atual do Organizador segue:
 
 ```text
 Organizador
-    ↓
+    ↓
 Criar evento
-    ↓
+    ↓
 Informar dados gerais
-    ↓
+    ↓
 Definir capacidade total
-    ↓
+    ↓
 Salvar como DRAFT
-    ↓
+    ↓
 Configurar setores
-    ↓
+    ↓
 Configurar modalidades
-    ↓
+    ↓
 Definir QUANTITY ou SEAT
-    ↓
+    ↓
 Adicionar categorias de preço
-    ↓
+    ↓
 Criar lotes
-    ↓
+    ↓
 Definir preços
-    ↓
+    ↓
 Configurar assentos quando aplicável
-    ↓
+    ↓
 Verificar pendências
-    ↓
+    ↓
 Publicar
-    ↓
+    ↓
 PUBLISHED
 ```
 
@@ -315,11 +372,11 @@ A estrutura possui controle hierárquico:
 
 ```text
 EVENTO
-   ↓
+   ↓
 SETOR
-   ↓
+   ↓
 MODALIDADE
-   ↓
+   ↓
 LOTE / ASSENTO
 ```
 
@@ -543,9 +600,9 @@ Exemplo:
 ```text
 LOTE 1
 
-INTEIRA      R$ 220,00
-MEIA         R$ 110,00
-MEIA SOCIAL  R$ 140,00
+INTEIRA      R$ 220,00
+MEIA         R$ 110,00
+MEIA SOCIAL  R$ 140,00
 ```
 
 As categorias compartilham a quantidade disponível no lote.
@@ -560,7 +617,7 @@ Exemplo:
 
 ```text
 R$ 220,00 → 22000
-R$ 89,90  → 8990
+R$ 89,90  → 8990
 ```
 
 Isso reduz problemas de precisão com números decimais.
@@ -576,6 +633,8 @@ A taxa padrão definida para compras online é:
 ```
 
 A taxa é calculada separadamente do valor-base dos ingressos.
+
+Em uma revisão visual futura do checkout, a porcentagem não deverá ser destacada ao lado do rótulo da taxa; o cálculo e o valor cobrado permanecem inalterados.
 
 O pedido registra:
 
@@ -611,7 +670,7 @@ CLIENT
 
 autenticado.
 
-O Front-End completo desse fluxo será implementado na Etapa 7.
+O Front-End desse fluxo foi implementado na Etapa 7 e está integrado aos endpoints de checkout.
 
 ---
 
@@ -1038,39 +1097,39 @@ Exemplo de:
 EventsProject/
 │
 ├── backend/
-│   ├── prisma/
-│   │   ├── migrations/
-│   │   ├── schema.prisma
-│   │   └── seed.js
-│   │
-│   ├── src/
-│   │   ├── controllers/
-│   │   ├── lib/
-│   │   ├── middleware/
-│   │   ├── routes/
-│   │   ├── services/
-│   │   └── server.js
-│   │
-│   ├── package.json
-│   └── .env.example
+│   ├── prisma/
+│   │   ├── migrations/
+│   │   ├── schema.prisma
+│   │   └── seed.js
+│   │
+│   ├── src/
+│   │   ├── controllers/
+│   │   ├── lib/
+│   │   ├── middleware/
+│   │   ├── routes/
+│   │   ├── services/
+│   │   └── server.js
+│   │
+│   ├── package.json
+│   └── .env.example
 │
 ├── frontend/
-│   ├── src/
-│   │   ├── components/
-│   │   ├── contexts/
-│   │   ├── layouts/
-│   │   ├── pages/
-│   │   ├── routes/
-│   │   ├── services/
-│   │   ├── App.jsx
-│   │   ├── index.css
-│   │   └── main.jsx
-│   │
-│   ├── package.json
-│   └── vite.config.js
+│   ├── src/
+│   │   ├── components/
+│   │   ├── contexts/
+│   │   ├── layouts/
+│   │   ├── pages/
+│   │   ├── routes/
+│   │   ├── services/
+│   │   ├── App.jsx
+│   │   ├── index.css
+│   │   └── main.jsx
+│   │
+│   ├── package.json
+│   └── vite.config.js
 │
 ├── documents/
-│   └── etapas_desenvolvimento.md
+│   └── etapas_desenvolvimento.md
 │
 ├── .gitignore
 └── README.md
@@ -1221,7 +1280,7 @@ Novos usuários cadastrados através do endpoint público seguem a política de 
 ```text
 POST /auth/register
 POST /auth/login
-GET  /auth/me
+GET  /auth/me
 ```
 
 ## Eventos públicos
@@ -1234,12 +1293,12 @@ GET /events/:eventId
 ## Organizador
 
 ```text
-GET  /events/templates
-GET  /events/organizer/mine
-GET  /events/organizer/:eventId
+GET  /events/templates
+GET  /events/organizer/mine
+GET  /events/organizer/:eventId
 
 POST /events/organizer
-PUT  /events/organizer/:eventId
+PUT  /events/organizer/:eventId
 ```
 
 ## Configuração do evento
@@ -1251,35 +1310,35 @@ GET /events/organizer/:eventId/configuration
 ### Setores
 
 ```text
-POST   /events/organizer/:eventId/sectors
+POST   /events/organizer/:eventId/sectors
 DELETE /events/organizer/:eventId/sectors/:sectorId
 ```
 
 ### Modalidades
 
 ```text
-POST   /events/organizer/:eventId/sectors/:sectorId/modalities
+POST   /events/organizer/:eventId/sectors/:sectorId/modalities
 DELETE /events/organizer/:eventId/modalities/:modalityId
 ```
 
 ### Categorias de preço
 
 ```text
-POST   /events/organizer/:eventId/modalities/:modalityId/categories
+POST   /events/organizer/:eventId/modalities/:modalityId/categories
 DELETE /events/organizer/:eventId/modalities/:modalityId/categories/:categoryId
 ```
 
 ### Lotes
 
 ```text
-POST   /events/organizer/:eventId/modalities/:modalityId/batches
+POST   /events/organizer/:eventId/modalities/:modalityId/batches
 DELETE /events/organizer/:eventId/modalities/:modalityId/batches/:batchId
 ```
 
 ### Assentos
 
 ```text
-POST   /events/organizer/:eventId/modalities/:modalityId/seats
+POST   /events/organizer/:eventId/modalities/:modalityId/seats
 DELETE /events/organizer/:eventId/modalities/:modalityId/seats/:seatId
 ```
 
@@ -1375,45 +1434,31 @@ documents/etapas_desenvolvimento.md
 
 # Próxima Etapa
 
-## Etapa 7 — Seleção de Ingressos e Checkout no Front-End
+## Etapa 8 — Meus Ingressos & Visualização de QR Code
 
-A próxima etapa conecta o catálogo público ao núcleo de checkout já existente no Back-End.
+A próxima etapa utilizará os Tickets já gerados pelo fluxo de compra para construir a área do Cliente destinada aos ingressos adquiridos.
 
 O fluxo previsto é:
 
 ```text
-Evento
-   ↓
-Selecionar ingressos
-   ↓
-QUANTITY ou SEAT
-   ↓
-Escolher categoria
-   ↓
-Escolher quantidade ou assento
-   ↓
-Autenticação do Cliente
-   ↓
-Checkout
-   ↓
-Subtotal
-   ↓
-Taxa de serviço de 12%
-   ↓
-Total
-   ↓
-Pagamento simulado
-   ↓
-Sucesso ou recusa
+CLIENT
+↓
+Minha área
+↓
+Meus Ingressos
+↓
+listar Tickets adquiridos
+↓
+abrir ingresso
+↓
+visualizar dados do evento
+↓
+renderizar QR Code privado
+↓
+opção de compartilhamento público seguro
 ```
 
-O Front-End também deverá respeitar o limite de:
-
-```text
-10 ingressos por checkout
-```
-
-além das validações obrigatórias já existentes no Back-End.
+O Back-End já possui suporte para QR Code assinado e compartilhamento público. A Etapa 8 será responsável por integrar essas funcionalidades à interface do Cliente.
 
 ---
 

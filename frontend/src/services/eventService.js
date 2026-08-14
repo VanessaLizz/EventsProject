@@ -87,6 +87,19 @@ export function updateOrganizerEvent(
     );
 }
 
+export function publishOrganizerEvent(
+    eventId,
+    token
+) {
+    return apiRequest(
+        `/events/organizer/${eventId}/publish`,
+        {
+            method: "POST",
+            token,
+        }
+    );
+}
+
 // ======================================================
 // CONFIGURAÇÃO
 // ======================================================

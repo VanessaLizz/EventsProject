@@ -1,5 +1,9 @@
 import prisma from "../lib/prisma.js";
 
+import {
+    getCurrentBatchForModality,
+} from "../services/checkoutService.js";
+
 // ======================================================
 // SELECTS COMPARTILHADOS
 // ======================================================
@@ -43,16 +47,21 @@ const organizerEventSelect = {
 // LISTAR EVENTOS PÚBLICOS
 // ======================================================
 
-export async function listPublicEvents(req, res) {
+export async function listPublicEvents(
+    req,
+    res
+) {
     try {
         const events =
             await prisma.event.findMany({
                 where: {
-                    status: "PUBLISHED",
+                    status:
+                        "PUBLISHED",
                 },
 
                 orderBy: {
-                    dateTime: "asc",
+                    dateTime:
+                        "asc",
                 },
 
                 select: {
@@ -73,25 +82,30 @@ export async function listPublicEvents(req, res) {
                         select: {
                             id: true,
                             name: true,
-                            normalizedName: true,
+                            normalizedName:
+                                true,
                         },
                     },
                 },
             });
 
-        return res.status(200).json({
-            events,
-        });
+        return res
+            .status(200)
+            .json({
+                events,
+            });
     } catch (error) {
         console.error(
             "Erro ao listar eventos:",
             error
         );
 
-        return res.status(500).json({
-            message:
-                "Erro interno do servidor.",
-        });
+        return res
+            .status(500)
+            .json({
+                message:
+                    "Erro interno do servidor.",
+            });
     }
 }
 
@@ -104,14 +118,18 @@ export async function getPublicEventById(
     res
 ) {
     try {
-        const { eventId } =
-            req.params;
+        const {
+            eventId,
+        } = req.params;
 
         const event =
             await prisma.event.findFirst({
                 where: {
-                    id: eventId,
-                    status: "PUBLISHED",
+                    id:
+                        eventId,
+
+                    status:
+                        "PUBLISHED",
                 },
 
                 select: {
@@ -136,13 +154,15 @@ export async function getPublicEventById(
                         select: {
                             id: true,
                             name: true,
-                            normalizedName: true,
+                            normalizedName:
+                                true,
                         },
                     },
 
                     sectors: {
                         orderBy: {
-                            createdAt: "asc",
+                            createdAt:
+                                "asc",
                         },
 
                         select: {
@@ -166,11 +186,14 @@ export async function getPublicEventById(
 
                                 select: {
                                     id: true,
-                                    capacity: true,
+                                    capacity:
+                                        true,
+
                                     occupancyMode:
                                         true,
 
-                                    modalityTemplate: {
+                                    modalityTemplate:
+                                    {
                                         select: {
                                             id: true,
                                             name: true,
@@ -179,49 +202,24 @@ export async function getPublicEventById(
                                         },
                                     },
 
-                                    batches: {
+                                    seats: {
                                         where: {
-                                            isActive:
+                                            isAvailable:
                                                 true,
                                         },
 
                                         orderBy: {
-                                            sequence:
+                                            normalizedLabel:
                                                 "asc",
                                         },
 
                                         select: {
                                             id: true,
-                                            name: true,
-                                            sequence:
+                                            label: true,
+                                            normalizedLabel:
                                                 true,
-                                            quantity:
+                                            isAvailable:
                                                 true,
-
-                                            prices: {
-                                                select: {
-                                                    id: true,
-                                                    priceInCents:
-                                                        true,
-
-                                                    eventTicketCategory:
-                                                    {
-                                                        select: {
-                                                            id: true,
-
-                                                            priceCategoryTemplate:
-                                                            {
-                                                                select: {
-                                                                    id: true,
-                                                                    name: true,
-                                                                    normalizedName:
-                                                                        true,
-                                                                },
-                                                            },
-                                                        },
-                                                    },
-                                                },
-                                            },
                                         },
                                     },
                                 },
@@ -232,25 +230,174 @@ export async function getPublicEventById(
             });
 
         if (!event) {
-            return res.status(404).json({
-                message:
-                    "Evento não encontrado.",
-            });
+            return res
+                .status(404)
+                .json({
+                    message:
+                        "Evento não encontrado.",
+                });
         }
 
-        return res.status(200).json({
-            event,
-        });
+        // ==================================================
+        // DEFINE SOMENTE O LOTE VIGENTE DE CADA MODALIDADE
+        // ==================================================
+        //
+        // O cliente não precisa conhecer a sequência de lotes.
+        //
+        // Exemplo:
+        //
+        // LOTE 1 ainda possui estoque
+        // → retorna preços do lote 1
+        //
+        // LOTE 1 esgotou
+        // → retorna preços do lote 2
+        //
+        // Todos os lotes esgotaram
+        // → batches = []
+        //
+        // O array "batches" é mantido temporariamente para
+        // compatibilidade com o Front-End atual, mas contém
+        // no máximo UM lote.
+        // ==================================================
+
+        const sectors =
+            await Promise.all(
+                event.sectors.map(
+                    async (
+                        sector
+                    ) => {
+                        const modalities =
+                            await Promise.all(
+                                sector
+                                    .modalities
+                                    .map(
+                                        async (
+                                            modality
+                                        ) => {
+                                            const currentBatch =
+                                                await getCurrentBatchForModality(
+                                                    prisma,
+                                                    modality.id
+                                                );
+
+                                            if (
+                                                !currentBatch
+                                            ) {
+                                                return {
+                                                    ...modality,
+
+                                                    batches:
+                                                        [],
+                                                };
+                                            }
+
+                                            const publicBatch =
+                                            {
+                                                id:
+                                                    currentBatch.id,
+
+                                                sequence:
+                                                    currentBatch.sequence,
+
+                                                quantity:
+                                                    currentBatch.quantity,
+
+                                                soldQuantity:
+                                                    currentBatch
+                                                        .soldQuantity,
+
+                                                remainingQuantity:
+                                                    currentBatch
+                                                        .remainingQuantity,
+
+                                                prices:
+                                                    (
+                                                        currentBatch
+                                                            .prices ||
+                                                        []
+                                                    ).map(
+                                                        (
+                                                            price
+                                                        ) => ({
+                                                            id:
+                                                                price.id,
+
+                                                            priceInCents:
+                                                                price
+                                                                    .priceInCents,
+
+                                                            eventTicketCategory:
+                                                            {
+                                                                id:
+                                                                    price
+                                                                        .eventTicketCategory
+                                                                        .id,
+
+                                                                priceCategoryTemplate:
+                                                                {
+                                                                    id:
+                                                                        price
+                                                                            .eventTicketCategory
+                                                                            .priceCategoryTemplate
+                                                                            .id,
+
+                                                                    name:
+                                                                        price
+                                                                            .eventTicketCategory
+                                                                            .priceCategoryTemplate
+                                                                            .name,
+
+                                                                    normalizedName:
+                                                                        price
+                                                                            .eventTicketCategory
+                                                                            .priceCategoryTemplate
+                                                                            .normalizedName,
+                                                                },
+                                                            },
+                                                        })
+                                                    ),
+                                            };
+
+                                            return {
+                                                ...modality,
+
+                                                batches:
+                                                    [
+                                                        publicBatch,
+                                                    ],
+                                            };
+                                        }
+                                    )
+                            );
+
+                        return {
+                            ...sector,
+                            modalities,
+                        };
+                    }
+                )
+            );
+
+        return res
+            .status(200)
+            .json({
+                event: {
+                    ...event,
+                    sectors,
+                },
+            });
     } catch (error) {
         console.error(
             "Erro ao buscar evento:",
             error
         );
 
-        return res.status(500).json({
-            message:
-                "Erro interno do servidor.",
-        });
+        return res
+            .status(500)
+            .json({
+                message:
+                    "Erro interno do servidor.",
+            });
     }
 }
 
@@ -264,78 +411,95 @@ export async function listEventTemplates(
 ) {
     try {
         const categories =
-            await prisma.eventCategoryTemplate
+            await prisma
+                .eventCategoryTemplate
                 .findMany({
                     orderBy: {
-                        name: "asc",
+                        name:
+                            "asc",
                     },
 
                     select: {
                         id: true,
                         name: true,
-                        normalizedName: true,
+                        normalizedName:
+                            true,
                     },
                 });
 
         const sectors =
-            await prisma.sectorTemplate
+            await prisma
+                .sectorTemplate
                 .findMany({
                     orderBy: {
-                        name: "asc",
+                        name:
+                            "asc",
                     },
 
                     select: {
                         id: true,
                         name: true,
-                        normalizedName: true,
+                        normalizedName:
+                            true,
                     },
                 });
 
         const modalities =
-            await prisma.modalityTemplate
+            await prisma
+                .modalityTemplate
                 .findMany({
                     orderBy: {
-                        name: "asc",
+                        name:
+                            "asc",
                     },
 
                     select: {
                         id: true,
                         name: true,
-                        normalizedName: true,
+                        normalizedName:
+                            true,
                     },
                 });
 
         const priceCategories =
-            await prisma.priceCategoryTemplate
+            await prisma
+                .priceCategoryTemplate
                 .findMany({
                     orderBy: {
-                        name: "asc",
+                        name:
+                            "asc",
                     },
 
                     select: {
                         id: true,
                         name: true,
-                        normalizedName: true,
-                        quotaGroupId: true,
+                        normalizedName:
+                            true,
+                        quotaGroupId:
+                            true,
                     },
                 });
 
-        return res.status(200).json({
-            categories,
-            sectors,
-            modalities,
-            priceCategories,
-        });
+        return res
+            .status(200)
+            .json({
+                categories,
+                sectors,
+                modalities,
+                priceCategories,
+            });
     } catch (error) {
         console.error(
             "Erro ao listar templates:",
             error
         );
 
-        return res.status(500).json({
-            message:
-                "Erro interno do servidor.",
-        });
+        return res
+            .status(500)
+            .json({
+                message:
+                    "Erro interno do servidor.",
+            });
     }
 }
 
@@ -356,26 +520,31 @@ export async function listOrganizerEvents(
                 },
 
                 orderBy: {
-                    createdAt: "desc",
+                    createdAt:
+                        "desc",
                 },
 
                 select:
                     organizerEventSelect,
             });
 
-        return res.status(200).json({
-            events,
-        });
+        return res
+            .status(200)
+            .json({
+                events,
+            });
     } catch (error) {
         console.error(
             "Erro ao listar eventos do organizador:",
             error
         );
 
-        return res.status(500).json({
-            message:
-                "Erro interno do servidor.",
-        });
+        return res
+            .status(500)
+            .json({
+                message:
+                    "Erro interno do servidor.",
+            });
     }
 }
 
@@ -388,13 +557,16 @@ export async function getOrganizerEventById(
     res
 ) {
     try {
-        const { eventId } =
-            req.params;
+        const {
+            eventId,
+        } = req.params;
 
         const event =
             await prisma.event.findFirst({
                 where: {
-                    id: eventId,
+                    id:
+                        eventId,
+
                     organizerId:
                         req.user.id,
                 },
@@ -404,25 +576,31 @@ export async function getOrganizerEventById(
             });
 
         if (!event) {
-            return res.status(404).json({
-                message:
-                    "Evento não encontrado.",
-            });
+            return res
+                .status(404)
+                .json({
+                    message:
+                        "Evento não encontrado.",
+                });
         }
 
-        return res.status(200).json({
-            event,
-        });
+        return res
+            .status(200)
+            .json({
+                event,
+            });
     } catch (error) {
         console.error(
             "Erro ao buscar evento do organizador:",
             error
         );
 
-        return res.status(500).json({
-            message:
-                "Erro interno do servidor.",
-        });
+        return res
+            .status(500)
+            .json({
+                message:
+                    "Erro interno do servidor.",
+            });
     }
 }
 
@@ -463,43 +641,56 @@ export async function createOrganizerEvent(
             !dateTime ||
             !categoryTemplateId
         ) {
-            return res.status(400).json({
-                message:
-                    "Preencha todos os campos obrigatórios do evento.",
-            });
+            return res
+                .status(400)
+                .json({
+                    message:
+                        "Preencha todos os campos obrigatórios do evento.",
+                });
         }
 
         const parsedCapacity =
-            Number(capacity);
+            Number(
+                capacity
+            );
 
         if (
             !Number.isInteger(
                 parsedCapacity
             ) ||
-            parsedCapacity <= 0
+            parsedCapacity <=
+                0
         ) {
-            return res.status(400).json({
-                message:
-                    "A capacidade deve ser um número inteiro maior que zero.",
-            });
+            return res
+                .status(400)
+                .json({
+                    message:
+                        "A capacidade deve ser um número inteiro maior que zero.",
+                });
         }
 
         const parsedDate =
-            new Date(dateTime);
+            new Date(
+                dateTime
+            );
 
         if (
             Number.isNaN(
-                parsedDate.getTime()
+                parsedDate
+                    .getTime()
             )
         ) {
-            return res.status(400).json({
-                message:
-                    "Data e hora do evento inválidas.",
-            });
+            return res
+                .status(400)
+                .json({
+                    message:
+                        "Data e hora do evento inválidas.",
+                });
         }
 
         const category =
-            await prisma.eventCategoryTemplate
+            await prisma
+                .eventCategoryTemplate
                 .findUnique({
                     where: {
                         id:
@@ -512,24 +703,28 @@ export async function createOrganizerEvent(
                 });
 
         if (!category) {
-            return res.status(400).json({
-                message:
-                    "Categoria do evento inválida.",
-            });
+            return res
+                .status(400)
+                .json({
+                    message:
+                        "Categoria do evento inválida.",
+                });
         }
 
-        const event =
+        const createdEvent =
             await prisma.event.create({
                 data: {
                     title:
                         title.trim(),
 
                     description:
-                        description?.trim() ||
+                        description
+                            ?.trim() ||
                         null,
 
                     imageUrl:
-                        imageUrl?.trim() ||
+                        imageUrl
+                            ?.trim() ||
                         null,
 
                     source:
@@ -539,10 +734,12 @@ export async function createOrganizerEvent(
                         parsedCapacity,
 
                     venueName:
-                        venueName.trim(),
+                        venueName
+                            .trim(),
 
                     address:
-                        address?.trim() ||
+                        address
+                            ?.trim() ||
                         null,
 
                     city:
@@ -552,21 +749,32 @@ export async function createOrganizerEvent(
                         state.trim(),
 
                     country:
-                        country.trim(),
+                        country
+                            .trim(),
 
                     latitude:
-                        latitude === "" ||
-                            latitude === null ||
-                            latitude === undefined
+                        latitude ===
+                            "" ||
+                        latitude ===
+                            null ||
+                        latitude ===
+                            undefined
                             ? null
-                            : Number(latitude),
+                            : Number(
+                                latitude
+                            ),
 
                     longitude:
-                        longitude === "" ||
-                            longitude === null ||
-                            longitude === undefined
+                        longitude ===
+                            "" ||
+                        longitude ===
+                            null ||
+                        longitude ===
+                            undefined
                             ? null
-                            : Number(longitude),
+                            : Number(
+                                longitude
+                            ),
 
                     dateTime:
                         parsedDate,
@@ -584,21 +792,27 @@ export async function createOrganizerEvent(
                     organizerEventSelect,
             });
 
-        return res.status(201).json({
-            message:
-                "Evento criado com sucesso.",
-            event,
-        });
+        return res
+            .status(201)
+            .json({
+                message:
+                    "Evento criado com sucesso.",
+
+                event:
+                    createdEvent,
+            });
     } catch (error) {
         console.error(
             "Erro ao criar evento:",
             error
         );
 
-        return res.status(500).json({
-            message:
-                "Erro interno do servidor.",
-        });
+        return res
+            .status(500)
+            .json({
+                message:
+                    "Erro interno do servidor.",
+            });
     }
 }
 
@@ -611,13 +825,16 @@ export async function updateOrganizerEvent(
     res
 ) {
     try {
-        const { eventId } =
-            req.params;
+        const {
+            eventId,
+        } = req.params;
 
         const existingEvent =
             await prisma.event.findFirst({
                 where: {
-                    id: eventId,
+                    id:
+                        eventId,
+
                     organizerId:
                         req.user.id,
                 },
@@ -628,10 +845,12 @@ export async function updateOrganizerEvent(
             });
 
         if (!existingEvent) {
-            return res.status(404).json({
-                message:
-                    "Evento não encontrado.",
-            });
+            return res
+                .status(404)
+                .json({
+                    message:
+                        "Evento não encontrado.",
+                });
         }
 
         const {
@@ -662,43 +881,56 @@ export async function updateOrganizerEvent(
             !dateTime ||
             !categoryTemplateId
         ) {
-            return res.status(400).json({
-                message:
-                    "Preencha todos os campos obrigatórios do evento.",
-            });
+            return res
+                .status(400)
+                .json({
+                    message:
+                        "Preencha todos os campos obrigatórios do evento.",
+                });
         }
 
         const parsedCapacity =
-            Number(capacity);
+            Number(
+                capacity
+            );
 
         if (
             !Number.isInteger(
                 parsedCapacity
             ) ||
-            parsedCapacity <= 0
+            parsedCapacity <=
+                0
         ) {
-            return res.status(400).json({
-                message:
-                    "A capacidade deve ser um número inteiro maior que zero.",
-            });
+            return res
+                .status(400)
+                .json({
+                    message:
+                        "A capacidade deve ser um número inteiro maior que zero.",
+                });
         }
 
         const parsedDate =
-            new Date(dateTime);
+            new Date(
+                dateTime
+            );
 
         if (
             Number.isNaN(
-                parsedDate.getTime()
+                parsedDate
+                    .getTime()
             )
         ) {
-            return res.status(400).json({
-                message:
-                    "Data e hora do evento inválidas.",
-            });
+            return res
+                .status(400)
+                .json({
+                    message:
+                        "Data e hora do evento inválidas.",
+                });
         }
 
         const category =
-            await prisma.eventCategoryTemplate
+            await prisma
+                .eventCategoryTemplate
                 .findUnique({
                     where: {
                         id:
@@ -711,16 +943,19 @@ export async function updateOrganizerEvent(
                 });
 
         if (!category) {
-            return res.status(400).json({
-                message:
-                    "Categoria do evento inválida.",
-            });
+            return res
+                .status(400)
+                .json({
+                    message:
+                        "Categoria do evento inválida.",
+                });
         }
 
-        const event =
+        const updatedEvent =
             await prisma.event.update({
                 where: {
-                    id: eventId,
+                    id:
+                        eventId,
                 },
 
                 data: {
@@ -728,21 +963,25 @@ export async function updateOrganizerEvent(
                         title.trim(),
 
                     description:
-                        description?.trim() ||
+                        description
+                            ?.trim() ||
                         null,
 
                     imageUrl:
-                        imageUrl?.trim() ||
+                        imageUrl
+                            ?.trim() ||
                         null,
 
                     capacity:
                         parsedCapacity,
 
                     venueName:
-                        venueName.trim(),
+                        venueName
+                            .trim(),
 
                     address:
-                        address?.trim() ||
+                        address
+                            ?.trim() ||
                         null,
 
                     city:
@@ -752,21 +991,32 @@ export async function updateOrganizerEvent(
                         state.trim(),
 
                     country:
-                        country.trim(),
+                        country
+                            .trim(),
 
                     latitude:
-                        latitude === "" ||
-                            latitude === null ||
-                            latitude === undefined
+                        latitude ===
+                            "" ||
+                        latitude ===
+                            null ||
+                        latitude ===
+                            undefined
                             ? null
-                            : Number(latitude),
+                            : Number(
+                                latitude
+                            ),
 
                     longitude:
-                        longitude === "" ||
-                            longitude === null ||
-                            longitude === undefined
+                        longitude ===
+                            "" ||
+                        longitude ===
+                            null ||
+                        longitude ===
+                            undefined
                             ? null
-                            : Number(longitude),
+                            : Number(
+                                longitude
+                            ),
 
                     dateTime:
                         parsedDate,
@@ -778,20 +1028,26 @@ export async function updateOrganizerEvent(
                     organizerEventSelect,
             });
 
-        return res.status(200).json({
-            message:
-                "Evento atualizado com sucesso.",
-            event,
-        });
+        return res
+            .status(200)
+            .json({
+                message:
+                    "Evento atualizado com sucesso.",
+
+                event:
+                    updatedEvent,
+            });
     } catch (error) {
         console.error(
             "Erro ao atualizar evento:",
             error
         );
 
-        return res.status(500).json({
-            message:
-                "Erro interno do servidor.",
-        });
+        return res
+            .status(500)
+            .json({
+                message:
+                    "Erro interno do servidor.",
+            });
     }
 }

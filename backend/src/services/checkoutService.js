@@ -5,25 +5,147 @@ const VALID_TICKET_STATUSES = [
     "USED",
 ];
 
+// ======================================================
+// LOTE VIGENTE
+// ======================================================
+
+export async function getCurrentBatchForModality(
+    db,
+    modalityId
+) {
+    const batches =
+        await db.ticketBatch.findMany({
+            where: {
+                eventSectorModalityId:
+                    modalityId,
+                isActive: true,
+            },
+
+            orderBy: {
+                sequence: "asc",
+            },
+
+            include: {
+                prices: {
+                    include: {
+                        eventTicketCategory: {
+                            include: {
+                                priceCategoryTemplate:
+                                    true,
+                            },
+                        },
+                    },
+                },
+            },
+        });
+
+    for (const batch of batches) {
+        const sold =
+            await db.ticket.count({
+                where: {
+                    status: {
+                        in:
+                            VALID_TICKET_STATUSES,
+                    },
+
+                    ticketBatchPrice: {
+                        ticketBatchId:
+                            batch.id,
+                    },
+                },
+            });
+
+        const remainingQuantity =
+            Math.max(
+                0,
+                batch.quantity - sold
+            );
+
+        if (
+            remainingQuantity >
+            0
+        ) {
+            return {
+                ...batch,
+                soldQuantity:
+                    sold,
+                remainingQuantity,
+            };
+        }
+    }
+
+    return null;
+}
+
+// ======================================================
+// VALIDAR SE O LOTE SELECIONADO É O VIGENTE
+// ======================================================
+
+export async function validateCurrentBatch(
+    db,
+    batch
+) {
+    const currentBatch =
+        await getCurrentBatchForModality(
+            db,
+            batch.eventSectorModalityId
+        );
+
+    if (!currentBatch) {
+        throw new Error(
+            "MODALITY_SOLD_OUT"
+        );
+    }
+
+    if (
+        currentBatch.id !==
+        batch.id
+    ) {
+        throw new Error(
+            "BATCH_NOT_CURRENT"
+        );
+    }
+
+    return currentBatch;
+}
+
+// ======================================================
+// LIBERAR ASSENTOS DA SESSÃO
+// ======================================================
+
 export async function releaseSessionSeats(
     tx,
     session
 ) {
-    const seatIds = session.items
-        .filter((item) => item.seatId)
-        .map((item) => item.seatId);
+    const seatIds =
+        session.items
+            .filter(
+                (item) =>
+                    item.seatId
+            )
+            .map(
+                (item) =>
+                    item.seatId
+            );
 
-    if (seatIds.length === 0) {
+    if (
+        seatIds.length === 0
+    ) {
         return;
     }
 
-    for (const seatId of seatIds) {
+    for (
+        const seatId
+        of seatIds
+    ) {
         const soldTicket =
             await tx.ticket.findFirst({
                 where: {
                     seatId,
+
                     status: {
-                        in: VALID_TICKET_STATUSES,
+                        in:
+                            VALID_TICKET_STATUSES,
                     },
                 },
             });
@@ -31,15 +153,22 @@ export async function releaseSessionSeats(
         if (!soldTicket) {
             await tx.seat.update({
                 where: {
-                    id: seatId,
+                    id:
+                        seatId,
                 },
+
                 data: {
-                    isAvailable: true,
+                    isAvailable:
+                        true,
                 },
             });
         }
     }
 }
+
+// ======================================================
+// EXPIRAR CHECKOUT
+// ======================================================
 
 export async function expireCheckoutIfNecessary(
     tx,
@@ -48,7 +177,8 @@ export async function expireCheckoutIfNecessary(
 ) {
     if (
         !session.expiresAt ||
-        session.expiresAt > now
+        session.expiresAt >
+            now
     ) {
         return false;
     }
@@ -60,15 +190,22 @@ export async function expireCheckoutIfNecessary(
 
     await tx.checkoutSession.update({
         where: {
-            id: session.id,
+            id:
+                session.id,
         },
+
         data: {
-            status: "EXPIRED",
+            status:
+                "EXPIRED",
         },
     });
 
     return true;
 }
+
+// ======================================================
+// VALIDAR ESTOQUE DO CHECKOUT
+// ======================================================
 
 export async function validateCheckoutStock(
     tx,
@@ -78,13 +215,25 @@ export async function validateCheckoutStock(
     // AGRUPA QUANTIDADES
     // ==================================================
 
-    const batchRequests = new Map();
-    const modalityRequests = new Map();
-    const sectorRequests = new Map();
-    const eventRequests = new Map();
-    const quotaRequests = new Map();
+    const batchRequests =
+        new Map();
 
-    for (const item of session.items) {
+    const modalityRequests =
+        new Map();
+
+    const sectorRequests =
+        new Map();
+
+    const eventRequests =
+        new Map();
+
+    const quotaRequests =
+        new Map();
+
+    for (
+        const item
+        of session.items
+    ) {
         const price =
             item.ticketBatchPrice;
 
@@ -108,30 +257,47 @@ export async function validateCheckoutStock(
 
         batchRequests.set(
             batch.id,
-            (batchRequests.get(batch.id) || 0) +
-            quantity
+            (
+                batchRequests.get(
+                    batch.id
+                ) || 0
+            ) +
+                quantity
         );
 
         modalityRequests.set(
             modality.id,
-            (modalityRequests.get(modality.id) || 0) +
-            quantity
+            (
+                modalityRequests.get(
+                    modality.id
+                ) || 0
+            ) +
+                quantity
         );
 
         sectorRequests.set(
             sector.id,
-            (sectorRequests.get(sector.id) || 0) +
-            quantity
+            (
+                sectorRequests.get(
+                    sector.id
+                ) || 0
+            ) +
+                quantity
         );
 
         eventRequests.set(
             event.id,
-            (eventRequests.get(event.id) || 0) +
-            quantity
+            (
+                eventRequests.get(
+                    event.id
+                ) || 0
+            ) +
+                quantity
         );
 
         const quotaGroup =
-            category.priceCategoryTemplate
+            category
+                .priceCategoryTemplate
                 .quotaGroup;
 
         if (quotaGroup) {
@@ -141,16 +307,26 @@ export async function validateCheckoutStock(
             quotaRequests.set(
                 quotaKey,
                 {
-                    batchId: batch.id,
-                    groupId: quotaGroup.id,
+                    batchId:
+                        batch.id,
+
+                    groupId:
+                        quotaGroup.id,
+
                     percentage:
-                        quotaGroup.maxPercentage,
+                        quotaGroup
+                            .maxPercentage,
+
                     requested:
                         (
                             quotaRequests.get(
                                 quotaKey
-                            )?.requested || 0
-                        ) + quantity,
+                            )
+                                ?.requested ||
+                            0
+                        ) +
+                        quantity,
+
                     batchQuantity:
                         batch.quantity,
                 }
@@ -163,28 +339,45 @@ export async function validateCheckoutStock(
     // ==================================================
 
     for (
-        const [batchId, requested]
+        const [
+            batchId,
+            requested,
+        ]
         of batchRequests.entries()
     ) {
         const batch =
             await tx.ticketBatch.findUnique({
                 where: {
-                    id: batchId,
+                    id:
+                        batchId,
                 },
             });
 
-        if (!batch || !batch.isActive) {
+        if (
+            !batch ||
+            !batch.isActive
+        ) {
             throw new Error(
                 "BATCH_UNAVAILABLE"
             );
         }
 
+        // Garante que o lote ainda é o lote vigente
+        // da modalidade no momento da finalização.
+
+        await validateCurrentBatch(
+            tx,
+            batch
+        );
+
         const sold =
             await tx.ticket.count({
                 where: {
                     status: {
-                        in: VALID_TICKET_STATUSES,
+                        in:
+                            VALID_TICKET_STATUSES,
                     },
+
                     ticketBatchPrice: {
                         ticketBatchId:
                             batchId,
@@ -193,7 +386,8 @@ export async function validateCheckoutStock(
             });
 
         if (
-            sold + requested >
+            sold +
+                requested >
             batch.quantity
         ) {
             throw new Error(
@@ -207,14 +401,19 @@ export async function validateCheckoutStock(
     // ==================================================
 
     for (
-        const [modalityId, requested]
+        const [
+            modalityId,
+            requested,
+        ]
         of modalityRequests.entries()
     ) {
         const modality =
-            await tx.eventSectorModality
+            await tx
+                .eventSectorModality
                 .findUnique({
                     where: {
-                        id: modalityId,
+                        id:
+                            modalityId,
                     },
                 });
 
@@ -222,8 +421,10 @@ export async function validateCheckoutStock(
             await tx.ticket.count({
                 where: {
                     status: {
-                        in: VALID_TICKET_STATUSES,
+                        in:
+                            VALID_TICKET_STATUSES,
                     },
+
                     ticketBatchPrice: {
                         ticketBatch: {
                             eventSectorModalityId:
@@ -234,7 +435,8 @@ export async function validateCheckoutStock(
             });
 
         if (
-            sold + requested >
+            sold +
+                requested >
             modality.capacity
         ) {
             throw new Error(
@@ -248,22 +450,30 @@ export async function validateCheckoutStock(
     // ==================================================
 
     for (
-        const [sectorId, requested]
+        const [
+            sectorId,
+            requested,
+        ]
         of sectorRequests.entries()
     ) {
         const sector =
-            await tx.eventSector.findUnique({
-                where: {
-                    id: sectorId,
-                },
-            });
+            await tx
+                .eventSector
+                .findUnique({
+                    where: {
+                        id:
+                            sectorId,
+                    },
+                });
 
         const sold =
             await tx.ticket.count({
                 where: {
                     status: {
-                        in: VALID_TICKET_STATUSES,
+                        in:
+                            VALID_TICKET_STATUSES,
                     },
+
                     ticketBatchPrice: {
                         ticketBatch: {
                             eventSectorModality: {
@@ -276,7 +486,8 @@ export async function validateCheckoutStock(
             });
 
         if (
-            sold + requested >
+            sold +
+                requested >
             sector.capacity
         ) {
             throw new Error(
@@ -290,13 +501,17 @@ export async function validateCheckoutStock(
     // ==================================================
 
     for (
-        const [eventId, requested]
+        const [
+            eventId,
+            requested,
+        ]
         of eventRequests.entries()
     ) {
         const event =
             await tx.event.findUnique({
                 where: {
-                    id: eventId,
+                    id:
+                        eventId,
                 },
             });
 
@@ -304,8 +519,10 @@ export async function validateCheckoutStock(
             await tx.ticket.count({
                 where: {
                     status: {
-                        in: VALID_TICKET_STATUSES,
+                        in:
+                            VALID_TICKET_STATUSES,
                     },
+
                     ticketBatchPrice: {
                         ticketBatch: {
                             eventSectorModality: {
@@ -319,7 +536,8 @@ export async function validateCheckoutStock(
             });
 
         if (
-            sold + requested >
+            sold +
+                requested >
             event.capacity
         ) {
             throw new Error(
@@ -349,7 +567,8 @@ export async function validateCheckoutStock(
             await tx.ticket.count({
                 where: {
                     status: {
-                        in: VALID_TICKET_STATUSES,
+                        in:
+                            VALID_TICKET_STATUSES,
                     },
 
                     ticketBatchPrice: {
@@ -368,13 +587,18 @@ export async function validateCheckoutStock(
 
         const maxAllowed =
             Math.floor(
-                quota.batchQuantity *
-                quota.percentage /
-                100
+                (
+                    quota
+                        .batchQuantity *
+                    quota
+                        .percentage
+                ) /
+                    100
             );
 
         if (
-            sold + quota.requested >
+            sold +
+                quota.requested >
             maxAllowed
         ) {
             throw new Error(

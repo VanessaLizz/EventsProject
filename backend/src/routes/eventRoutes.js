@@ -27,6 +27,10 @@ import {
 } from "../controllers/eventConfigurationController.js";
 
 import {
+    publishOrganizerEvent,
+} from "../controllers/eventPublicationController.js";
+
+import {
     authenticate,
 } from "../middleware/authMiddleware.js";
 
@@ -60,6 +64,13 @@ router.get(
     authenticate,
     authorize("ORGANIZER"),
     getEventConfiguration
+);
+
+router.post(
+    "/organizer/:eventId/publish",
+    authenticate,
+    authorize("ORGANIZER"),
+    publishOrganizerEvent
 );
 
 router.post(

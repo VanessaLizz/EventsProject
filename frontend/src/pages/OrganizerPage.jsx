@@ -1,4 +1,5 @@
 ﻿import {
+    useCallback,
     useEffect,
     useState,
 } from "react";
@@ -35,9 +36,14 @@ function getStatusLabel(
     status
 ) {
     const labels = {
-        DRAFT: "Rascunho",
-        PUBLISHED: "Publicado",
-        CANCELLED: "Cancelado",
+        DRAFT:
+            "Rascunho",
+
+        PUBLISHED:
+            "Publicado",
+
+        CANCELLED:
+            "Cancelado",
     };
 
     return (
@@ -67,46 +73,50 @@ export default function OrganizerPage() {
         setError,
     ] = useState("");
 
-    useEffect(() => {
-        let isMounted = true;
-
-        async function loadEvents() {
-            try {
+    const loadEvents =
+        useCallback(
+            async () => {
                 const response =
                     await getOrganizerEvents(
                         token
                     );
 
-                if (!isMounted) {
-                    return;
-                }
-
                 setEvents(
                     response.events ||
                     []
                 );
-            } catch (error) {
-                if (!isMounted) {
-                    return;
-                }
+            },
+            [token]
+        );
 
-                setError(
-                    error.message ||
-                    "Não foi possível carregar seus eventos."
-                );
+    useEffect(() => {
+        let active = true;
+
+        async function load() {
+            try {
+                await loadEvents();
+            } catch (error) {
+                if (active) {
+                    setError(
+                        error.message ||
+                        "Não foi possível carregar seus eventos."
+                    );
+                }
             } finally {
-                if (isMounted) {
-                    setIsLoading(false);
+                if (active) {
+                    setIsLoading(
+                        false
+                    );
                 }
             }
         }
 
-        loadEvents();
+        load();
 
         return () => {
-            isMounted = false;
+            active = false;
         };
-    }, [token]);
+    }, [loadEvents]);
 
     return (
         <main className="account-page organizer-page">
@@ -155,6 +165,17 @@ export default function OrganizerPage() {
                 </Link>
             </section>
 
+            {error && (
+                <section
+                    className="organizer-status organizer-status-error"
+                    role="alert"
+                >
+                    <p>
+                        {error}
+                    </p>
+                </section>
+            )}
+
             {isLoading && (
                 <section className="organizer-status">
                     <p>
@@ -164,41 +185,25 @@ export default function OrganizerPage() {
             )}
 
             {!isLoading &&
-                error && (
-                    <section
-                        className="organizer-status organizer-status-error"
-                        role="alert"
-                    >
-                        <h2>
-                            Não foi possível
-                            carregar os eventos
-                        </h2>
-
-                        <p>
-                            {error}
-                        </p>
-                    </section>
-                )}
-
-            {!isLoading &&
                 !error &&
                 events.length ===
-                0 && (
+                    0 && (
                     <section className="organizer-empty">
                         <p className="account-eyebrow">
                             Comece por aqui
                         </p>
 
                         <h2>
-                            Você ainda não possui
-                            eventos
+                            Você ainda não
+                            possui eventos
                         </h2>
 
                         <p>
                             Crie seu primeiro
-                            evento para configurar
-                            setores, modalidades,
-                            lotes e ingressos.
+                            evento para
+                            configurar setores,
+                            modalidades, lotes
+                            e ingressos.
                         </p>
                     </section>
                 )}
@@ -206,7 +211,7 @@ export default function OrganizerPage() {
             {!isLoading &&
                 !error &&
                 events.length >
-                0 && (
+                    0 && (
                     <section className="organizer-events-grid">
                         {events.map(
                             (
@@ -253,7 +258,9 @@ export default function OrganizerPage() {
                                             {
                                                 event.venueName
                                             }
+
                                             <br />
+
                                             {
                                                 event.city
                                             }{" "}
@@ -290,19 +297,34 @@ export default function OrganizerPage() {
                                         </div>
                                     </div>
 
-                                    <Link
-                                        to={`/organizador/eventos/${event.id}/editar`}
-                                        className="organizer-edit-button"
-                                    >
-                                        Editar evento
-                                    </Link>
+                                    {event.status ===
+                                        "DRAFT" && (
+                                        <>
+                                            <Link
+                                                to={`/organizador/eventos/${event.id}/editar`}
+                                                className="organizer-edit-button"
+                                            >
+                                                Editar evento
+                                            </Link>
 
-                                    <Link
-                                        to={`/organizador/eventos/${event.id}/configurar`}
-                                        className="organizer-edit-button"
-                                    >
-                                        Configurar ingressos
-                                    </Link>
+                                            <Link
+                                                to={`/organizador/eventos/${event.id}/configurar`}
+                                                className="organizer-edit-button"
+                                            >
+                                                Configurar ingressos
+                                            </Link>
+                                        </>
+                                    )}
+
+                                    {event.status ===
+                                        "PUBLISHED" && (
+                                        <Link
+                                            to={`/eventos/${event.id}`}
+                                            className="organizer-edit-button"
+                                        >
+                                            Ver evento publicado
+                                        </Link>
+                                    )}
                                 </article>
                             )
                         )}

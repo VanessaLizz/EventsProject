@@ -14,6 +14,180 @@ function normalizeName(
 }
 
 // ======================================================
+// CRIAR TEMPLATE DE SETOR
+// ======================================================
+
+export async function createSectorTemplate(
+    req,
+    res
+) {
+    try {
+        const {
+            name,
+        } = req.body;
+
+        const trimmedName =
+            String(
+                name || ""
+            ).trim();
+
+        if (!trimmedName) {
+            return res.status(400).json({
+                message:
+                    "Informe o nome do setor.",
+            });
+        }
+
+        const normalizedName =
+            normalizeName(
+                trimmedName
+            );
+
+        const existingTemplate =
+            await prisma
+                .sectorTemplate
+                .findUnique({
+                    where: {
+                        normalizedName,
+                    },
+                });
+
+        if (existingTemplate) {
+            return res.status(409).json({
+                message:
+                    "Já existe um setor com este nome.",
+                sectorTemplate:
+                    existingTemplate,
+            });
+        }
+
+        const sectorTemplate =
+            await prisma
+                .sectorTemplate
+                .create({
+                    data: {
+                        name:
+                            trimmedName,
+                        normalizedName,
+                    },
+                });
+
+        return res.status(201).json({
+            message:
+                "Setor criado com sucesso.",
+            sectorTemplate,
+        });
+    } catch (error) {
+        if (
+            error.code ===
+            "P2002"
+        ) {
+            return res.status(409).json({
+                message:
+                    "Já existe um setor com este nome.",
+            });
+        }
+
+        console.error(
+            "Erro ao criar template de setor:",
+            error
+        );
+
+        return res.status(500).json({
+            message:
+                "Erro interno do servidor.",
+        });
+    }
+}
+
+// ======================================================
+// CRIAR TEMPLATE DE MODALIDADE
+// ======================================================
+
+export async function createModalityTemplate(
+    req,
+    res
+) {
+    try {
+        const {
+            name,
+        } = req.body;
+
+        const trimmedName =
+            String(
+                name || ""
+            ).trim();
+
+        if (!trimmedName) {
+            return res.status(400).json({
+                message:
+                    "Informe o nome da modalidade.",
+            });
+        }
+
+        const normalizedName =
+            normalizeName(
+                trimmedName
+            );
+
+        const existingTemplate =
+            await prisma
+                .modalityTemplate
+                .findUnique({
+                    where: {
+                        normalizedName,
+                    },
+                });
+
+        if (existingTemplate) {
+            return res.status(409).json({
+                message:
+                    "Já existe uma modalidade com este nome.",
+                modalityTemplate:
+                    existingTemplate,
+            });
+        }
+
+        const modalityTemplate =
+            await prisma
+                .modalityTemplate
+                .create({
+                    data: {
+                        name:
+                            trimmedName,
+                        normalizedName,
+                    },
+                });
+
+        return res.status(201).json({
+            message:
+                "Modalidade criada com sucesso.",
+            modalityTemplate,
+        });
+    } catch (error) {
+        if (
+            error.code ===
+            "P2002"
+        ) {
+            return res.status(409).json({
+                message:
+                    "Já existe uma modalidade com este nome.",
+            });
+        }
+
+        console.error(
+            "Erro ao criar template de modalidade:",
+            error
+        );
+
+        return res.status(500).json({
+            message:
+                "Erro interno do servidor.",
+        });
+    }
+}
+
+// ======================================================
 // BUSCAR CONFIGURAÇÃO COMPLETA DO EVENTO
 // ======================================================
 

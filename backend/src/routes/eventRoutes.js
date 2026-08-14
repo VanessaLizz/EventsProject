@@ -14,6 +14,8 @@ import {
 
 import {
     getEventConfiguration,
+    createSectorTemplate,
+    createModalityTemplate,
     createEventSector,
     createSectorModality,
     createTicketCategory,
@@ -50,6 +52,24 @@ router.get(
     authenticate,
     authorize("ORGANIZER"),
     listEventTemplates
+);
+
+// ======================================================
+// CRIAÇÃO DE TEMPLATES GLOBAIS
+// ======================================================
+
+router.post(
+    "/templates/sectors",
+    authenticate,
+    authorize("ORGANIZER"),
+    createSectorTemplate
+);
+
+router.post(
+    "/templates/modalities",
+    authenticate,
+    authorize("ORGANIZER"),
+    createModalityTemplate
 );
 
 router.get(

@@ -528,10 +528,263 @@ export async function listOrganizerEvents(
                     organizerEventSelect,
             });
 
+        const eventsWithMetrics =
+            await Promise.all(
+                events.map(
+                    async (event) => {
+                        const tickets =
+                            await prisma.ticket.findMany({
+                                where: {
+                                    status: {
+                                        in: [
+                                            "VALID",
+                                            "USED",
+                                        ],
+                                    },
+
+                                    ticketBatchPrice: {
+                                        ticketBatch: {
+                                            eventSectorModality: {
+                                                eventSector: {
+                                                    eventId:
+                                                        event.id,
+                                                },
+                                            },
+                                        },
+                                    },
+                                },
+
+                                select: {
+                                    unitPriceInCents:
+                                        true,
+
+                                    ticketBatchPrice: {
+                                        select: {
+                                            eventTicketCategory: {
+                                                select: {
+                                                    priceCategoryTemplate: {
+                                                        select: {
+                                                            name: true,
+                                                        },
+                                                    },
+                                                },
+                                            },
+
+                                            ticketBatch: {
+                                                select: {
+                                                    eventSectorModality: {
+                                                        select: {
+                                                            eventSector: {
+                                                                select: {
+                                                                    sectorTemplate: {
+                                                                        select: {
+                                                                            name: true,
+                                                                        },
+                                                                    },
+                                                                },
+                                                            },
+                                                        },
+                                                    },
+                                                },
+                                            },
+                                        },
+                                    },
+                                },
+                            });
+
+                        const soldTickets =
+                            tickets.length;
+
+                        const revenueInCents =
+                            tickets.reduce(
+                                (
+                                    total,
+                                    ticket
+                                ) =>
+                                    total +
+                                    ticket
+                                        .unitPriceInCents,
+                                0
+                            );
+
+                        const remainingCapacity =
+                            Math.max(
+                                event.capacity -
+                                    soldTickets,
+                                0
+                            );
+
+                        const occupancyPercentage =
+                            event.capacity >
+                            0
+                                ? Math.min(
+                                      Math.round(
+                                          (
+                                              soldTickets /
+                                              event.capacity
+                                          ) *
+                                              100
+                                      ),
+                                      100
+                                  )
+                                : 0;
+
+                        const categoryMap =
+                            new Map();
+
+                        const sectorMap =
+                            new Map();
+
+                        for (
+                            const ticket
+                            of tickets
+                        ) {
+                            const categoryName =
+                                ticket
+                                    .ticketBatchPrice
+                                    .eventTicketCategory
+                                    .priceCategoryTemplate
+                                    .name;
+
+                            const sectorName =
+                                ticket
+                                    .ticketBatchPrice
+                                    .ticketBatch
+                                    .eventSectorModality
+                                    .eventSector
+                                    .sectorTemplate
+                                    .name;
+
+                            const categoryData =
+                                categoryMap.get(
+                                    categoryName
+                                ) || {
+                                    quantity:
+                                        0,
+
+                                    revenueInCents:
+                                        0,
+                                };
+
+                            categoryData.quantity +=
+                                1;
+
+                            categoryData.revenueInCents +=
+                                ticket
+                                    .unitPriceInCents;
+
+                            categoryMap.set(
+                                categoryName,
+                                categoryData
+                            );
+
+                            const sectorData =
+                                sectorMap.get(
+                                    sectorName
+                                ) || {
+                                    quantity:
+                                        0,
+
+                                    revenueInCents:
+                                        0,
+                                };
+
+                            sectorData.quantity +=
+                                1;
+
+                            sectorData.revenueInCents +=
+                                ticket
+                                    .unitPriceInCents;
+
+                            sectorMap.set(
+                                sectorName,
+                                sectorData
+                            );
+                        }
+
+                        const byCategory =
+                            Array.from(
+                                categoryMap
+                                    .entries()
+                            )
+                                .map(
+                                    (
+                                        [
+                                            name,
+                                            data,
+                                        ]
+                                    ) => ({
+                                        name,
+
+                                        quantity:
+                                            data.quantity,
+
+                                        revenueInCents:
+                                            data
+                                                .revenueInCents,
+                                    })
+                                )
+                                .sort(
+                                    (
+                                        a,
+                                        b
+                                    ) =>
+                                        b.quantity -
+                                        a.quantity
+                                );
+
+                        const bySector =
+                            Array.from(
+                                sectorMap
+                                    .entries()
+                            )
+                                .map(
+                                    (
+                                        [
+                                            name,
+                                            data,
+                                        ]
+                                    ) => ({
+                                        name,
+
+                                        quantity:
+                                            data.quantity,
+
+                                        revenueInCents:
+                                            data
+                                                .revenueInCents,
+                                    })
+                                )
+                                .sort(
+                                    (
+                                        a,
+                                        b
+                                    ) =>
+                                        b.quantity -
+                                        a.quantity
+                                );
+
+                        return {
+                            ...event,
+
+                            metrics: {
+                                soldTickets,
+                                revenueInCents,
+                                occupancyPercentage,
+                                remainingCapacity,
+                                byCategory,
+                                bySector,
+                            },
+                        };
+                    }
+                )
+            );
+
         return res
             .status(200)
             .json({
-                events,
+                events:
+                    eventsWithMetrics,
             });
     } catch (error) {
         console.error(

@@ -251,7 +251,7 @@ export async function createEventSector(
 
         if (
             usedCapacity +
-            parsedCapacity >
+                parsedCapacity >
             event.capacity
         ) {
             return res.status(400).json({
@@ -396,7 +396,7 @@ export async function createSectorModality(
 
         if (
             usedCapacity +
-            parsedCapacity >
+                parsedCapacity >
             sector.capacity
         ) {
             return res.status(400).json({
@@ -679,7 +679,7 @@ export async function createTicketBatch(
 
         if (
             usedQuantity +
-            parsedQuantity >
+                parsedQuantity >
             modality.capacity
         ) {
             return res.status(400).json({
@@ -722,6 +722,28 @@ export async function createTicketBatch(
             }
         }
 
+        const normalizedName =
+            normalizeName(
+                name
+            );
+
+        const existingName =
+            await prisma.ticketBatch
+                .findFirst({
+                    where: {
+                        eventSectorModalityId:
+                            modalityId,
+                        normalizedName,
+                    },
+                });
+
+        if (existingName) {
+            return res.status(409).json({
+                message:
+                    "Já existe um lote com este nome nesta modalidade.",
+            });
+        }
+
         const batch =
             await prisma.$transaction(
                 async (
@@ -734,10 +756,15 @@ export async function createTicketBatch(
                                 data: {
                                     eventSectorModalityId:
                                         modalityId,
+
                                     name:
                                         name.trim(),
+
+                                    normalizedName,
+
                                     sequence:
                                         parsedSequence,
+
                                     quantity:
                                         parsedQuantity,
                                 },
@@ -773,6 +800,16 @@ export async function createTicketBatch(
             batch,
         });
     } catch (error) {
+        if (
+            error.code ===
+            "P2002"
+        ) {
+            return res.status(409).json({
+                message:
+                    "Já existe um lote com este nome ou ordem.",
+            });
+        }
+
         console.error(
             "Erro ao criar lote:",
             error

@@ -1,75 +1,313 @@
 ﻿import {
+    useEffect,
+    useState,
+} from "react";
+
+import {
+    Link,
+} from "react-router";
+
+import {
     useAuth,
 } from "../contexts/authContext.js";
 
 import AccountLogout from "../components/AccountLogout.jsx";
 
-export default function OrganizerPage() {
-    const { user } =
-        useAuth();
+import {
+    getOrganizerEvents,
+} from "../services/eventService.js";
+
+function formatDate(
+    dateTime
+) {
+    return new Intl.DateTimeFormat(
+        "pt-BR",
+        {
+            dateStyle: "medium",
+            timeStyle: "short",
+        }
+    ).format(
+        new Date(dateTime)
+    );
+}
+
+function getStatusLabel(
+    status
+) {
+    const labels = {
+        DRAFT: "Rascunho",
+        PUBLISHED: "Publicado",
+        CANCELLED: "Cancelado",
+    };
 
     return (
-        <main className="account-page">
-            <header className="account-heading">
-                <p className="account-eyebrow">
-                    Organização
-                </p>
+        labels[status] ||
+        status
+    );
+}
 
-                <h1>
-                    Painel do Organizador
-                </h1>
+export default function OrganizerPage() {
+    const {
+        user,
+        token,
+    } = useAuth();
 
-                <p>
-                    Olá, {user.name}.
-                    Este será o espaço para
-                    gerenciamento dos seus
-                    eventos.
-                </p>
+    const [
+        events,
+        setEvents,
+    ] = useState([]);
+
+    const [
+        isLoading,
+        setIsLoading,
+    ] = useState(true);
+
+    const [
+        error,
+        setError,
+    ] = useState("");
+
+    useEffect(() => {
+        let isMounted = true;
+
+        async function loadEvents() {
+            try {
+                const response =
+                    await getOrganizerEvents(
+                        token
+                    );
+
+                if (!isMounted) {
+                    return;
+                }
+
+                setEvents(
+                    response.events ||
+                    []
+                );
+            } catch (error) {
+                if (!isMounted) {
+                    return;
+                }
+
+                setError(
+                    error.message ||
+                    "Não foi possível carregar seus eventos."
+                );
+            } finally {
+                if (isMounted) {
+                    setIsLoading(false);
+                }
+            }
+        }
+
+        loadEvents();
+
+        return () => {
+            isMounted = false;
+        };
+    }, [token]);
+
+    return (
+        <main className="account-page organizer-page">
+            <header className="account-heading organizer-heading">
+                <div>
+                    <p className="account-eyebrow">
+                        Organização
+                    </p>
+
+                    <h1>
+                        Painel do Organizador
+                    </h1>
+
+                    <p>
+                        Olá, {user.name}.
+                        Gerencie seus eventos,
+                        ingressos e vendas.
+                    </p>
+                </div>
 
                 <AccountLogout />
             </header>
 
-            <section className="account-grid">
-                <article className="account-card">
-                    <span className="account-card-number">
-                        01
-                    </span>
+            <section className="organizer-toolbar">
+                <div>
+                    <p className="account-eyebrow">
+                        Seus eventos
+                    </p>
 
                     <h2>
-                        Eventos
+                        Gerenciamento
                     </h2>
 
                     <p>
-                        Criação e gerenciamento
-                        dos eventos da sua
-                        organização.
+                        Crie novos eventos ou
+                        continue configurando
+                        os existentes.
                     </p>
+                </div>
 
-                    <span className="account-coming-soon">
-                        Em breve
-                    </span>
-                </article>
-
-                <article className="account-card">
-                    <span className="account-card-number">
-                        02
-                    </span>
-
-                    <h2>
-                        Vendas
-                    </h2>
-
-                    <p>
-                        Acompanhamento de
-                        ingressos e vendas dos
-                        eventos.
-                    </p>
-
-                    <span className="account-coming-soon">
-                        Em breve
-                    </span>
-                </article>
+                <Link
+                    to="/organizador/eventos/novo"
+                    className="organizer-create-button"
+                >
+                    + Criar evento
+                </Link>
             </section>
+
+            {isLoading && (
+                <section className="organizer-status">
+                    <p>
+                        Carregando eventos...
+                    </p>
+                </section>
+            )}
+
+            {!isLoading &&
+                error && (
+                    <section
+                        className="organizer-status organizer-status-error"
+                        role="alert"
+                    >
+                        <h2>
+                            Não foi possível
+                            carregar os eventos
+                        </h2>
+
+                        <p>
+                            {error}
+                        </p>
+                    </section>
+                )}
+
+            {!isLoading &&
+                !error &&
+                events.length ===
+                0 && (
+                    <section className="organizer-empty">
+                        <p className="account-eyebrow">
+                            Comece por aqui
+                        </p>
+
+                        <h2>
+                            Você ainda não possui
+                            eventos
+                        </h2>
+
+                        <p>
+                            Crie seu primeiro
+                            evento para configurar
+                            setores, modalidades,
+                            lotes e ingressos.
+                        </p>
+                    </section>
+                )}
+
+            {!isLoading &&
+                !error &&
+                events.length >
+                0 && (
+                    <section className="organizer-events-grid">
+                        {events.map(
+                            (
+                                event
+                            ) => (
+                                <article
+                                    className="organizer-event-card"
+                                    key={
+                                        event.id
+                                    }
+                                >
+                                    <div className="organizer-event-card-top">
+                                        <span
+                                            className={`organizer-event-status organizer-event-status-${event.status.toLowerCase()}`}
+                                        >
+                                            {getStatusLabel(
+                                                event.status
+                                            )}
+                                        </span>
+
+                                        <span className="organizer-event-category">
+                                            {
+                                                event
+                                                    .categoryTemplate
+                                                    ?.name
+                                            }
+                                        </span>
+                                    </div>
+
+                                    <div className="organizer-event-content">
+                                        <h3>
+                                            {
+                                                event.title
+                                            }
+                                        </h3>
+
+                                        <p className="organizer-event-date">
+                                            {formatDate(
+                                                event.dateTime
+                                            )}
+                                        </p>
+
+                                        <p className="organizer-event-location">
+                                            {
+                                                event.venueName
+                                            }
+                                            <br />
+                                            {
+                                                event.city
+                                            }{" "}
+                                            -{" "}
+                                            {
+                                                event.state
+                                            }
+                                        </p>
+                                    </div>
+
+                                    <div className="organizer-event-meta">
+                                        <div>
+                                            <span>
+                                                Capacidade
+                                            </span>
+
+                                            <strong>
+                                                {
+                                                    event.capacity
+                                                }
+                                            </strong>
+                                        </div>
+
+                                        <div>
+                                            <span>
+                                                Status
+                                            </span>
+
+                                            <strong>
+                                                {getStatusLabel(
+                                                    event.status
+                                                )}
+                                            </strong>
+                                        </div>
+                                    </div>
+
+                                    <Link
+                                        to={`/organizador/eventos/${event.id}/editar`}
+                                        className="organizer-edit-button"
+                                    >
+                                        Editar evento
+                                    </Link>
+
+                                    <Link
+                                        to={`/organizador/eventos/${event.id}/configurar`}
+                                        className="organizer-edit-button"
+                                    >
+                                        Configurar ingressos
+                                    </Link>
+                                </article>
+                            )
+                        )}
+                    </section>
+                )}
         </main>
     );
 }

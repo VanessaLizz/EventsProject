@@ -1,0 +1,513 @@
+.event-config-page {
+    width: min(1120px, calc(100% - 40px));
+    margin: 0 auto;
+    padding: 42px 0 80px;
+}
+
+.event-config-back {
+    display: inline-block;
+    margin-bottom: 26px;
+    color: var(--purple);
+    font-weight: 800;
+    text-decoration: none;
+}
+
+.event-config-header {
+    margin-bottom: 28px;
+}
+
+.event-config-header h1 {
+    margin-bottom: 10px;
+}
+
+.event-config-header>p:last-child {
+    margin: 0;
+    color: var(--text-soft);
+}
+
+.event-config-eyebrow {
+    margin-bottom: 7px;
+    color: var(--pink);
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.event-config-summary {
+    margin-bottom: 26px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+}
+
+.event-config-summary>div {
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface);
+}
+
+.event-config-summary span {
+    color: var(--text-soft);
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.event-config-summary strong {
+    font-size: 1.4rem;
+}
+
+.event-config-error,
+.event-config-success,
+.event-config-message {
+    margin-bottom: 22px;
+    padding: 14px 16px;
+    border-radius: 9px;
+    font-weight: 700;
+}
+
+.event-config-error {
+    border: 1px solid rgba(168, 63, 92, 0.3);
+    background: rgba(168, 63, 92, 0.08);
+    color: var(--danger);
+}
+
+.event-config-success {
+    border: 1px solid rgba(201, 123, 165, 0.35);
+    background: rgba(201, 123, 165, 0.12);
+    color: var(--text);
+}
+
+.event-config-step {
+    padding: 28px;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    background: var(--surface);
+}
+
+.event-config-step-header {
+    margin-bottom: 26px;
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+}
+
+.event-config-step-number {
+    width: 38px;
+    height: 38px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: var(--purple);
+    color: #ffffff;
+    font-weight: 800;
+}
+
+.event-config-step-header h2 {
+    margin: 0 0 4px;
+}
+
+.event-config-step-header p {
+    margin: 0;
+    color: var(--text-soft);
+}
+
+.event-config-page form {
+    width: 100%;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+.event-config-inline-form {
+    margin-bottom: 26px;
+    padding: 18px !important;
+    display: grid;
+    grid-template-columns:
+        repeat(3, minmax(0, 1fr)) auto;
+    gap: 14px;
+    align-items: end;
+    border: 1px solid var(--border) !important;
+    border-radius: 10px !important;
+    background: var(--background) !important;
+}
+
+.event-config-inline-form label,
+.event-config-batch-form label {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    font-size: 0.85rem;
+    font-weight: 700;
+}
+
+.event-config-inline-form button,
+.event-config-batch-form>button,
+.event-config-category-add button {
+    min-height: 44px;
+    padding: 9px 18px;
+    border: 0;
+    border-radius: 8px;
+    background: var(--purple);
+    color: #ffffff;
+    font-weight: 800;
+}
+
+.event-config-sector-list {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.event-config-sector {
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 13px;
+    background: var(--surface);
+}
+
+.event-config-sector-header {
+    padding: 20px 22px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    background: rgba(201, 123, 165, 0.08);
+}
+
+.event-config-sector-header span {
+    color: var(--text-soft);
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.event-config-sector-header h3 {
+    margin: 3px 0 0;
+}
+
+.event-config-substep {
+    padding: 22px;
+    border-top: 1px solid var(--border);
+}
+
+.event-config-substep h4 {
+    margin: 0 0 5px;
+}
+
+.event-config-substep>p {
+    margin-bottom: 18px;
+    color: var(--text-soft);
+}
+
+.event-config-modality-list {
+    padding: 0 22px 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.event-config-modality {
+    padding: 20px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--background);
+}
+
+.event-config-modality-header {
+    margin-bottom: 18px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 20px;
+}
+
+.event-config-modality-header h4 {
+    margin: 0 0 5px;
+}
+
+.event-config-modality-header span {
+    color: var(--text-soft);
+}
+
+.event-config-stock {
+    text-align: right;
+}
+
+.event-config-stock strong,
+.event-config-stock span {
+    display: block;
+}
+
+.event-config-stock strong {
+    color: var(--purple);
+    font-size: 1.35rem;
+}
+
+.event-config-stock span {
+    font-size: 0.78rem;
+}
+
+.event-config-box {
+    margin-top: 14px;
+    padding: 18px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+}
+
+.event-config-box h5 {
+    margin: 0 0 14px;
+    font-size: 0.95rem;
+}
+
+.event-config-tags {
+    margin-bottom: 14px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.event-config-tags span {
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: rgba(201, 123, 165, 0.15);
+    color: var(--purple);
+    font-size: 0.76rem;
+    font-weight: 800;
+}
+
+.event-config-category-add {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 10px;
+}
+
+.event-config-box-heading {
+    margin-bottom: 16px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 18px;
+}
+
+.event-config-box-heading h5 {
+    margin-bottom: 4px;
+}
+
+.event-config-box-heading p {
+    margin: 0;
+    color: var(--text-soft);
+    font-size: 0.86rem;
+}
+
+.event-config-box-heading>span {
+    color: var(--purple);
+    font-size: 0.82rem;
+    font-weight: 800;
+}
+
+.event-config-batch-form {
+    display: grid;
+    grid-template-columns:
+        repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.event-config-prices {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns:
+        repeat(auto-fit,
+            minmax(180px, 1fr));
+    gap: 12px;
+}
+
+.event-config-money {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    overflow: hidden;
+}
+
+.event-config-money span {
+    padding-left: 12px;
+    color: var(--text-soft);
+    font-weight: 700;
+}
+
+.event-config-money input {
+    border: 0;
+}
+
+.event-config-batch-form>button {
+    grid-column: 1 / -1;
+}
+
+.event-config-batches {
+    display: grid;
+    gap: 12px;
+}
+
+.event-config-batches>article {
+    padding: 15px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+
+.event-config-batches>article>div {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+}
+
+.event-config-batches>article>div span {
+    color: var(--text-soft);
+    font-size: 0.82rem;
+}
+
+.event-config-batches ul {
+    margin: 12px 0 0;
+    padding: 12px 0 0;
+    border-top: 1px solid var(--border);
+    list-style: none;
+}
+
+.event-config-batches li {
+    padding: 4px 0;
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+/* ======================================================
+   EXCLUSÕES
+   ====================================================== */
+
+.event-config-header-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
+.event-config-delete-button {
+    min-height: 34px;
+    padding: 7px 11px;
+
+    border: 1px solid rgba(168, 63, 92, 0.35);
+    border-radius: 8px;
+
+    background: transparent;
+    color: var(--danger);
+
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 800;
+
+    cursor: pointer;
+}
+
+.event-config-delete-button:hover:not(:disabled) {
+    background:
+        rgba(168, 63, 92, 0.08);
+}
+
+.event-config-delete-button:disabled,
+.event-config-removable-tag button:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+}
+
+.event-config-removable-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.event-config-removable-tag button {
+    width: 20px;
+    height: 20px;
+
+    padding: 0;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    border: 0;
+    border-radius: 50%;
+
+    background: transparent;
+    color: inherit;
+
+    font: inherit;
+    font-size: 1rem;
+    font-weight: 900;
+    line-height: 1;
+
+    cursor: pointer;
+}
+
+.event-config-removable-tag button:hover:not(:disabled) {
+    background:
+        rgba(168, 63, 92, 0.12);
+}
+
+@media (max-width: 800px) {
+    .event-config-summary {
+        grid-template-columns: 1fr;
+    }
+
+    .event-config-inline-form {
+        grid-template-columns: 1fr;
+    }
+
+    .event-config-batch-form {
+        grid-template-columns: 1fr;
+    }
+
+    .event-config-prices,
+    .event-config-batch-form>button {
+        grid-column: auto;
+    }
+}
+
+@media (max-width: 600px) {
+    .event-config-page {
+        width: calc(100% - 28px);
+    }
+
+    .event-config-step {
+        padding: 18px;
+    }
+
+    .event-config-sector-header,
+    .event-config-modality-header,
+    .event-config-box-heading,
+    .event-config-header-actions {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .event-config-stock {
+        text-align: left;
+    }
+
+    .event-config-category-add {
+        grid-template-columns: 1fr;
+    }
+}

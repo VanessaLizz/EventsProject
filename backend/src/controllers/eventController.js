@@ -1,6 +1,45 @@
 import prisma from "../lib/prisma.js";
 
 // ======================================================
+// SELECTS COMPARTILHADOS
+// ======================================================
+
+const organizerEventSelect = {
+    id: true,
+    title: true,
+    description: true,
+    imageUrl: true,
+    source: true,
+    externalId: true,
+    capacity: true,
+
+    venueName: true,
+    address: true,
+    city: true,
+    state: true,
+    country: true,
+
+    latitude: true,
+    longitude: true,
+
+    dateTime: true,
+    status: true,
+
+    organizerId: true,
+
+    categoryTemplate: {
+        select: {
+            id: true,
+            name: true,
+            normalizedName: true,
+        },
+    },
+
+    createdAt: true,
+    updatedAt: true,
+};
+
+// ======================================================
 // LISTAR EVENTOS PÚBLICOS
 // ======================================================
 
@@ -205,6 +244,548 @@ export async function getPublicEventById(
     } catch (error) {
         console.error(
             "Erro ao buscar evento:",
+            error
+        );
+
+        return res.status(500).json({
+            message:
+                "Erro interno do servidor.",
+        });
+    }
+}
+
+// ======================================================
+// TEMPLATES PARA O PAINEL DO ORGANIZADOR
+// ======================================================
+
+export async function listEventTemplates(
+    req,
+    res
+) {
+    try {
+        const categories =
+            await prisma.eventCategoryTemplate
+                .findMany({
+                    orderBy: {
+                        name: "asc",
+                    },
+
+                    select: {
+                        id: true,
+                        name: true,
+                        normalizedName: true,
+                    },
+                });
+
+        const sectors =
+            await prisma.sectorTemplate
+                .findMany({
+                    orderBy: {
+                        name: "asc",
+                    },
+
+                    select: {
+                        id: true,
+                        name: true,
+                        normalizedName: true,
+                    },
+                });
+
+        const modalities =
+            await prisma.modalityTemplate
+                .findMany({
+                    orderBy: {
+                        name: "asc",
+                    },
+
+                    select: {
+                        id: true,
+                        name: true,
+                        normalizedName: true,
+                    },
+                });
+
+        const priceCategories =
+            await prisma.priceCategoryTemplate
+                .findMany({
+                    orderBy: {
+                        name: "asc",
+                    },
+
+                    select: {
+                        id: true,
+                        name: true,
+                        normalizedName: true,
+                        quotaGroupId: true,
+                    },
+                });
+
+        return res.status(200).json({
+            categories,
+            sectors,
+            modalities,
+            priceCategories,
+        });
+    } catch (error) {
+        console.error(
+            "Erro ao listar templates:",
+            error
+        );
+
+        return res.status(500).json({
+            message:
+                "Erro interno do servidor.",
+        });
+    }
+}
+
+// ======================================================
+// LISTAR EVENTOS DO ORGANIZADOR
+// ======================================================
+
+export async function listOrganizerEvents(
+    req,
+    res
+) {
+    try {
+        const events =
+            await prisma.event.findMany({
+                where: {
+                    organizerId:
+                        req.user.id,
+                },
+
+                orderBy: {
+                    createdAt: "desc",
+                },
+
+                select:
+                    organizerEventSelect,
+            });
+
+        return res.status(200).json({
+            events,
+        });
+    } catch (error) {
+        console.error(
+            "Erro ao listar eventos do organizador:",
+            error
+        );
+
+        return res.status(500).json({
+            message:
+                "Erro interno do servidor.",
+        });
+    }
+}
+
+// ======================================================
+// BUSCAR EVENTO DO ORGANIZADOR
+// ======================================================
+
+export async function getOrganizerEventById(
+    req,
+    res
+) {
+    try {
+        const { eventId } =
+            req.params;
+
+        const event =
+            await prisma.event.findFirst({
+                where: {
+                    id: eventId,
+                    organizerId:
+                        req.user.id,
+                },
+
+                select:
+                    organizerEventSelect,
+            });
+
+        if (!event) {
+            return res.status(404).json({
+                message:
+                    "Evento não encontrado.",
+            });
+        }
+
+        return res.status(200).json({
+            event,
+        });
+    } catch (error) {
+        console.error(
+            "Erro ao buscar evento do organizador:",
+            error
+        );
+
+        return res.status(500).json({
+            message:
+                "Erro interno do servidor.",
+        });
+    }
+}
+
+// ======================================================
+// CRIAR EVENTO
+// ======================================================
+
+export async function createOrganizerEvent(
+    req,
+    res
+) {
+    try {
+        const {
+            title,
+            description,
+            imageUrl,
+            capacity,
+
+            venueName,
+            address,
+            city,
+            state,
+            country,
+
+            latitude,
+            longitude,
+
+            dateTime,
+            categoryTemplateId,
+        } = req.body;
+
+        if (
+            !title?.trim() ||
+            !venueName?.trim() ||
+            !city?.trim() ||
+            !state?.trim() ||
+            !country?.trim() ||
+            !dateTime ||
+            !categoryTemplateId
+        ) {
+            return res.status(400).json({
+                message:
+                    "Preencha todos os campos obrigatórios do evento.",
+            });
+        }
+
+        const parsedCapacity =
+            Number(capacity);
+
+        if (
+            !Number.isInteger(
+                parsedCapacity
+            ) ||
+            parsedCapacity <= 0
+        ) {
+            return res.status(400).json({
+                message:
+                    "A capacidade deve ser um número inteiro maior que zero.",
+            });
+        }
+
+        const parsedDate =
+            new Date(dateTime);
+
+        if (
+            Number.isNaN(
+                parsedDate.getTime()
+            )
+        ) {
+            return res.status(400).json({
+                message:
+                    "Data e hora do evento inválidas.",
+            });
+        }
+
+        const category =
+            await prisma.eventCategoryTemplate
+                .findUnique({
+                    where: {
+                        id:
+                            categoryTemplateId,
+                    },
+
+                    select: {
+                        id: true,
+                    },
+                });
+
+        if (!category) {
+            return res.status(400).json({
+                message:
+                    "Categoria do evento inválida.",
+            });
+        }
+
+        const event =
+            await prisma.event.create({
+                data: {
+                    title:
+                        title.trim(),
+
+                    description:
+                        description?.trim() ||
+                        null,
+
+                    imageUrl:
+                        imageUrl?.trim() ||
+                        null,
+
+                    source:
+                        "LOCAL",
+
+                    capacity:
+                        parsedCapacity,
+
+                    venueName:
+                        venueName.trim(),
+
+                    address:
+                        address?.trim() ||
+                        null,
+
+                    city:
+                        city.trim(),
+
+                    state:
+                        state.trim(),
+
+                    country:
+                        country.trim(),
+
+                    latitude:
+                        latitude === "" ||
+                            latitude === null ||
+                            latitude === undefined
+                            ? null
+                            : Number(latitude),
+
+                    longitude:
+                        longitude === "" ||
+                            longitude === null ||
+                            longitude === undefined
+                            ? null
+                            : Number(longitude),
+
+                    dateTime:
+                        parsedDate,
+
+                    status:
+                        "DRAFT",
+
+                    organizerId:
+                        req.user.id,
+
+                    categoryTemplateId,
+                },
+
+                select:
+                    organizerEventSelect,
+            });
+
+        return res.status(201).json({
+            message:
+                "Evento criado com sucesso.",
+            event,
+        });
+    } catch (error) {
+        console.error(
+            "Erro ao criar evento:",
+            error
+        );
+
+        return res.status(500).json({
+            message:
+                "Erro interno do servidor.",
+        });
+    }
+}
+
+// ======================================================
+// EDITAR EVENTO
+// ======================================================
+
+export async function updateOrganizerEvent(
+    req,
+    res
+) {
+    try {
+        const { eventId } =
+            req.params;
+
+        const existingEvent =
+            await prisma.event.findFirst({
+                where: {
+                    id: eventId,
+                    organizerId:
+                        req.user.id,
+                },
+
+                select: {
+                    id: true,
+                },
+            });
+
+        if (!existingEvent) {
+            return res.status(404).json({
+                message:
+                    "Evento não encontrado.",
+            });
+        }
+
+        const {
+            title,
+            description,
+            imageUrl,
+            capacity,
+
+            venueName,
+            address,
+            city,
+            state,
+            country,
+
+            latitude,
+            longitude,
+
+            dateTime,
+            categoryTemplateId,
+        } = req.body;
+
+        if (
+            !title?.trim() ||
+            !venueName?.trim() ||
+            !city?.trim() ||
+            !state?.trim() ||
+            !country?.trim() ||
+            !dateTime ||
+            !categoryTemplateId
+        ) {
+            return res.status(400).json({
+                message:
+                    "Preencha todos os campos obrigatórios do evento.",
+            });
+        }
+
+        const parsedCapacity =
+            Number(capacity);
+
+        if (
+            !Number.isInteger(
+                parsedCapacity
+            ) ||
+            parsedCapacity <= 0
+        ) {
+            return res.status(400).json({
+                message:
+                    "A capacidade deve ser um número inteiro maior que zero.",
+            });
+        }
+
+        const parsedDate =
+            new Date(dateTime);
+
+        if (
+            Number.isNaN(
+                parsedDate.getTime()
+            )
+        ) {
+            return res.status(400).json({
+                message:
+                    "Data e hora do evento inválidas.",
+            });
+        }
+
+        const category =
+            await prisma.eventCategoryTemplate
+                .findUnique({
+                    where: {
+                        id:
+                            categoryTemplateId,
+                    },
+
+                    select: {
+                        id: true,
+                    },
+                });
+
+        if (!category) {
+            return res.status(400).json({
+                message:
+                    "Categoria do evento inválida.",
+            });
+        }
+
+        const event =
+            await prisma.event.update({
+                where: {
+                    id: eventId,
+                },
+
+                data: {
+                    title:
+                        title.trim(),
+
+                    description:
+                        description?.trim() ||
+                        null,
+
+                    imageUrl:
+                        imageUrl?.trim() ||
+                        null,
+
+                    capacity:
+                        parsedCapacity,
+
+                    venueName:
+                        venueName.trim(),
+
+                    address:
+                        address?.trim() ||
+                        null,
+
+                    city:
+                        city.trim(),
+
+                    state:
+                        state.trim(),
+
+                    country:
+                        country.trim(),
+
+                    latitude:
+                        latitude === "" ||
+                            latitude === null ||
+                            latitude === undefined
+                            ? null
+                            : Number(latitude),
+
+                    longitude:
+                        longitude === "" ||
+                            longitude === null ||
+                            longitude === undefined
+                            ? null
+                            : Number(longitude),
+
+                    dateTime:
+                        parsedDate,
+
+                    categoryTemplateId,
+                },
+
+                select:
+                    organizerEventSelect,
+            });
+
+        return res.status(200).json({
+            message:
+                "Evento atualizado com sucesso.",
+            event,
+        });
+    } catch (error) {
+        console.error(
+            "Erro ao atualizar evento:",
             error
         );
 

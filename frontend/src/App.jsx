@@ -1,4 +1,4 @@
-import {
+﻿import {
   Route,
   Routes,
 } from "react-router";
@@ -12,36 +12,52 @@ import EventDetailsPage from "./pages/EventDetailsPage.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
 import ClientPage from "./pages/ClientPage.jsx";
 import OrganizerPage from "./pages/OrganizerPage.jsx";
+import OrganizerEventFormPage from "./pages/OrganizerEventFormPage.jsx";
+import OrganizerEventConfigurationPage from "./pages/OrganizerEventConfigurationPage.jsx";
 import CheckinPage from "./pages/CheckinPage.jsx";
 import NotFoundPage from "./pages/NotFoundPage.jsx";
 
 export default function App() {
   return (
     <Routes>
-      <Route element={<PublicLayout />}>
+      <Route
+        element={
+          <PublicLayout />
+        }
+      >
         <Route
           path="/"
-          element={<HomePage />}
+          element={
+            <HomePage />
+          }
         />
 
         <Route
           path="/eventos"
-          element={<EventsPage />}
+          element={
+            <EventsPage />
+          }
         />
 
         <Route
           path="/eventos/:eventId"
-          element={<EventDetailsPage />}
+          element={
+            <EventDetailsPage />
+          }
         />
 
         <Route
           path="/login"
-          element={<LoginPage />}
+          element={
+            <LoginPage />
+          }
         />
 
         <Route
           path="*"
-          element={<NotFoundPage />}
+          element={
+            <NotFoundPage />
+          }
         />
       </Route>
 
@@ -56,7 +72,9 @@ export default function App() {
       >
         <Route
           path="/cliente"
-          element={<ClientPage />}
+          element={
+            <ClientPage />
+          }
         />
       </Route>
 
@@ -75,6 +93,27 @@ export default function App() {
             <OrganizerPage />
           }
         />
+
+        <Route
+          path="/organizador/eventos/novo"
+          element={
+            <OrganizerEventFormPage />
+          }
+        />
+
+        <Route
+          path="/organizador/eventos/:eventId/editar"
+          element={
+            <OrganizerEventFormPage />
+          }
+        />
+
+        <Route
+          path="/organizador/eventos/:eventId/configurar"
+          element={
+            <OrganizerEventConfigurationPage />
+          }
+        />
       </Route>
 
       <Route
@@ -88,7 +127,9 @@ export default function App() {
       >
         <Route
           path="/portaria"
-          element={<CheckinPage />}
+          element={
+            <CheckinPage />
+          }
         />
       </Route>
     </Routes>

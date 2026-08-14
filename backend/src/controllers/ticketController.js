@@ -30,9 +30,11 @@ export async function listMyTickets(
                 },
 
                 include: {
-                    order: true,
+                    order:
+                        true,
 
-                    seat: true,
+                    seat:
+                        true,
 
                     ticketBatchPrice: {
                         include: {

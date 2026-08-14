@@ -36,11 +36,11 @@ A aplicação possui três perfis principais:
 - [x] **Etapa 5** — Front-End: autenticação, catálogo público e estrutura dos perfis
 - [x] **Etapa 6** — Módulo do Organizador, criação, configuração e publicação de eventos
 - [x] **Etapa 7** — Seleção de ingressos e checkout no Front-End
-- [x] **Etapa 8** — Meus Ingressos, QR Code e compartilhamento público
+- [x] **Etapa 8** — Meus Ingressos e visualização de QR Code
+- [x] **Etapa 9** — Portal da Portaria e validação de ingressos
 
 ## Próximas etapas
 
-- [ ] **Etapa 9** — Portal da Portaria
 - [ ] **Etapa 10** — Busca avançada, filtros e métricas
 - [ ] **Etapa 11** — Cancelamento e devolução ao estoque
 - [ ] **Etapa 12** — Docker e testes automatizados
@@ -80,7 +80,7 @@ Atualmente estão disponíveis:
 - navegação responsiva;
 - página 404;
 - tratamento visual para eventos sem imagem;
-- visualização pública de ingresso por link compartilhado.
+- visualização pública de ingresso compartilhado.
 
 Rotas principais:
 
@@ -106,286 +106,13 @@ Detalhes de um evento.
 /ingresso/:sharedToken
 ```
 
-Visualização pública segura de um ingresso compartilhado.
+Visualização pública de um ingresso compartilhado.
 
 ```text
 /login
 ```
 
 Autenticação.
-
----
-
-# Seleção de Ingressos e Checkout
-
-A Etapa 7 implementou o fluxo de compra no Front-End para o perfil `CLIENT`.
-
-Na página de detalhes de um evento publicado, o Cliente pode:
-
-- visualizar somente os preços do lote atualmente em venda;
-- selecionar ingressos de modalidades `QUANTITY`;
-- aumentar ou reduzir quantidades por categoria;
-- selecionar múltiplos assentos em modalidades `SEAT`;
-- definir individualmente cada assento como Inteira, Meia, Meia Social ou outra categoria disponível;
-- selecionar no máximo 10 ingressos por checkout;
-- visualizar subtotal, taxa de serviço e total;
-- iniciar o checkout autenticado;
-- executar pagamento simulado aprovado ou recusado;
-- visualizar a confirmação da compra;
-- receber a disponibilidade atualizada após a conclusão.
-
-Os nomes e números dos lotes não são apresentados ao comprador. O Back-End identifica automaticamente o lote vigente e disponibiliza somente os preços que podem ser vendidos naquele momento.
-
-Fluxo principal:
-
-```text
-Evento publicado
-↓
-Selecionar ingressos
-↓
-QUANTITY ou SEAT
-↓
-Quantidade ou assentos
-↓
-Categoria de preço
-↓
-Máximo de 10 ingressos
-↓
-Login CLIENT
-↓
-Checkout
-↓
-Subtotal + taxa + total
-↓
-Pagamento simulado
-↓
-APPROVED ou REFUSED
-```
-
-Para `SEAT`, cada assento selecionado pode possuir uma categoria de preço diferente.
-
-Exemplo:
-
-```text
-A1 → INTEIRA
-A2 → MEIA
-A3 → MEIA SOCIAL
-```
-
----
-
-# Meus Ingressos e QR Code
-
-A Etapa 8 implementou a área de ingressos adquiridos pelo perfil:
-
-```text
-CLIENT
-```
-
-Na Área do Cliente, o usuário autenticado pode:
-
-- visualizar todos os seus ingressos adquiridos;
-- visualizar a imagem do evento;
-- visualizar título, data e local;
-- consultar setor;
-- consultar modalidade;
-- consultar categoria de preço;
-- consultar o assento quando aplicável;
-- visualizar o valor individual pago;
-- visualizar o status atual do ingresso;
-- abrir um ingresso específico;
-- visualizar seu QR Code privado;
-- gerar um link de compartilhamento público.
-
-Rota da Área do Cliente:
-
-```text
-/cliente
-```
-
-Fluxo:
-
-```text
-CLIENT
-↓
-Área do Cliente
-↓
-Meus Ingressos
-↓
-Selecionar ingresso
-↓
-Visualizar informações
-↓
-QR Code privado
-```
-
-Cada unidade adquirida é representada por um `Ticket` individual.
-
-Mesmo quando uma compra possui múltiplas unidades, cada ingresso possui:
-
-- ID próprio;
-- status próprio;
-- QR Code próprio;
-- `sharedToken` próprio;
-- preço individual;
-- assento próprio quando aplicável.
-
----
-
-# Listagem dos Ingressos do Cliente
-
-Foi criado o endpoint:
-
-```text
-GET /tickets/mine
-```
-
-A rota exige:
-
-```text
-authenticate
-authorize("CLIENT")
-```
-
-e retorna somente Tickets pertencentes ao Cliente autenticado.
-
-A listagem apresenta informações necessárias à Área do Cliente, como:
-
-- ID do ingresso;
-- status;
-- `sharedToken`;
-- evento;
-- imagem;
-- data;
-- local;
-- setor;
-- modalidade;
-- categoria;
-- assento quando existir;
-- valor individual.
-
-O QR Code não é gerado durante a listagem completa dos ingressos.
-
-Isso evita gerar e trafegar os QRs privados de todos os Tickets sempre que a Área do Cliente é aberta.
-
----
-
-# Visualização Individual do Ingresso
-
-Ao clicar em:
-
-```text
-Ver ingresso / QR Code
-```
-
-a aplicação solicita o QR privado daquele Ticket específico.
-
-O fluxo é:
-
-```text
-Meus Ingressos
-↓
-Selecionar Ticket
-↓
-GET /tickets/:ticketId/qr
-↓
-Back-End verifica propriedade
-↓
-QR privado é gerado
-↓
-modal do ingresso
-```
-
-O modal apresenta:
-
-- evento;
-- data;
-- local;
-- setor;
-- modalidade;
-- categoria;
-- assento quando aplicável;
-- status;
-- QR Code.
-
----
-
-# Compartilhamento Público do Ingresso
-
-Cada Ticket possui:
-
-```text
-sharedToken
-```
-
-único.
-
-A Área do Cliente possui opção:
-
-```text
-Compartilhar
-```
-
-que gera uma URL no formato:
-
-```text
-/ingresso/:sharedToken
-```
-
-O endereço pode ser aberto sem autenticação.
-
-O Front-End utiliza:
-
-```text
-GET /tickets/shared/:sharedToken
-```
-
-para buscar as informações públicas.
-
-Fluxo:
-
-```text
-CLIENT
-↓
-Meus Ingressos
-↓
-Compartilhar
-↓
-link público
-↓
-/ingresso/:sharedToken
-↓
-acesso sem login
-```
-
-A página pública apresenta informações do ingresso e do evento, como:
-
-- evento;
-- imagem;
-- data;
-- local;
-- setor;
-- modalidade;
-- categoria;
-- assento quando existir;
-- valor;
-- status.
-
-O compartilhamento público **não apresenta o QR Code privado utilizado na entrada**.
-
-Também não deve expor:
-
-```text
-qrCode
-qrCodeHash
-token assinado
-orderId
-clientId
-email
-dados pessoais do comprador
-```
-
-Assim, o link compartilhado serve somente para visualização e não funciona como credencial de entrada.
 
 ---
 
@@ -433,6 +160,13 @@ CLIENT
 /cliente
 ```
 
+O Cliente pode:
+
+- visualizar seus ingressos;
+- consultar informações dos Tickets adquiridos;
+- visualizar QR Code privado;
+- compartilhar uma visualização pública do ingresso.
+
 ## Organizador
 
 ```text
@@ -444,6 +178,18 @@ ORGANIZER
 ```text
 /organizador
 ```
+
+O Organizador pode:
+
+- criar eventos;
+- editar eventos;
+- configurar setores;
+- configurar modalidades;
+- configurar categorias de preço;
+- configurar lotes;
+- configurar assentos;
+- visualizar pendências;
+- publicar eventos.
 
 ## Portaria
 
@@ -457,287 +203,103 @@ CHECKIN
 /portaria
 ```
 
+A Portaria pode:
+
+- validar ingressos;
+- utilizar leitura por câmera;
+- inserir manualmente o token do QR Code;
+- identificar ingresso válido;
+- identificar ingresso já utilizado;
+- identificar ingresso cancelado;
+- rejeitar QR Code inválido.
+
 Um usuário autenticado não pode acessar diretamente uma área destinada a outro perfil.
 
 ---
 
 # Módulo do Organizador
 
-A Etapa 6 implementou o fluxo principal de gerenciamento dos eventos pelo perfil:
+O módulo do Organizador permite gerenciar o ciclo principal de criação e publicação de eventos.
+
+O fluxo inclui:
 
 ```text
-ORGANIZER
-```
-
-O Organizador pode:
-
-- visualizar seus próprios eventos;
-- criar novos eventos;
-- editar eventos em rascunho;
-- configurar a capacidade;
-- adicionar setores;
-- definir a capacidade dos setores;
-- adicionar modalidades;
-- escolher entre `QUANTITY` e `SEAT`;
-- configurar categorias de preço;
-- criar múltiplos lotes;
-- definir quantidade de ingressos por lote;
-- configurar preços por categoria;
-- gerar assentos;
-- excluir configurações;
-- acompanhar a capacidade utilizada;
-- acompanhar a capacidade disponível;
-- visualizar pendências;
-- publicar eventos;
-- visualizar o evento publicado no catálogo público.
-
----
-
-# Fluxo de Criação do Evento
-
-O fluxo atual do Organizador segue:
-
-```text
-Organizador
-    ↓
 Criar evento
-    ↓
-Informar dados gerais
-    ↓
-Definir capacidade total
-    ↓
-Salvar como DRAFT
-    ↓
-Configurar setores
-    ↓
-Configurar modalidades
-    ↓
-Definir QUANTITY ou SEAT
-    ↓
-Adicionar categorias de preço
-    ↓
-Criar lotes
-    ↓
-Definir preços
-    ↓
-Configurar assentos quando aplicável
-    ↓
-Verificar pendências
-    ↓
-Publicar
-    ↓
-PUBLISHED
-```
-
----
-
-# Estados dos Eventos
-
-Os principais estados utilizados são:
-
-```text
-DRAFT
-PUBLISHED
-CANCELLED
-```
-
-## `DRAFT`
-
-Evento em configuração.
-
-Enquanto está em rascunho, o Organizador pode montar sua estrutura comercial.
-
-## `PUBLISHED`
-
-Evento publicado e disponível no catálogo público.
-
-## `CANCELLED`
-
-Evento cancelado.
-
----
-
-# Publicação de Eventos
-
-A publicação é realizada dentro da própria página de configuração do evento.
-
-Antes da publicação, o sistema verifica se existem pendências.
-
-A interface apresenta ao Organizador o que ainda precisa ser configurado.
-
-Entre as validações estão:
-
-- existência de setores;
-- capacidade dos setores;
-- modalidades configuradas;
-- capacidades das modalidades;
-- categorias de preço;
-- existência de lotes;
-- quantidade distribuída nos lotes;
-- preços para as categorias;
-- assentos em modalidades `SEAT`.
-
-Quando a configuração está completa:
-
-```text
-DRAFT
 ↓
-PUBLISHED
+Configurar estrutura comercial
+↓
+Setores
+↓
+Modalidades
+↓
+Categorias
+↓
+Lotes
+↓
+Assentos, quando aplicável
+↓
+Validar pendências
+↓
+Publicar
 ```
 
-O evento passa a aparecer no catálogo público.
+O evento somente pode ser publicado quando atende às regras obrigatórias de configuração.
+
+A interface apresenta as pendências diretamente na página do próprio evento antes da publicação.
 
 ---
 
-# Controle de Capacidade
+# Estrutura Comercial dos Eventos
 
-A estrutura possui controle hierárquico:
+O Boraí permite configurar eventos utilizando diferentes estruturas de venda.
 
-```text
-EVENTO
-   ↓
-SETOR
-   ↓
-MODALIDADE
-   ↓
-LOTE / ASSENTO
-```
+## Setores
 
-`Event.capacity` representa a capacidade física máxima do evento.
-
-Exemplo:
+Os setores representam divisões do evento, como:
 
 ```text
-Evento
-Capacidade: 1000
-
-PISTA
-Capacidade: 600
-
-CAMAROTE
-Capacidade: 400
-```
-
-Total:
-
-```text
-600 + 400 = 1000
-```
-
-A configuração não deve ultrapassar a capacidade definida no nível superior.
-
----
-
-# Visualização da Capacidade
-
-A tela de configuração apresenta ao Organizador:
-
-```text
-Capacidade máxima
-Em uso
-Disponível
-```
-
-Também são utilizados indicadores de progresso para facilitar a visualização da distribuição.
-
-Exemplo:
-
-```text
-Capacidade máxima: 1000
-Em uso: 700
-Disponível: 300
-```
-
----
-
-# Setores
-
-Os eventos podem possuir diferentes setores.
-
-Exemplos:
-
-```text
-PISTA
-CAMAROTE
-CADEIRA SUPERIOR
-CADEIRA INFERIOR
-PLATEIA
-SALA DE CINEMA
-ENTRADA GERAL
+Pista
+Camarote
+Cadeira Superior
+Cadeira Inferior
 ```
 
 Cada setor possui capacidade própria.
 
----
+## Modalidades
 
-# Modalidades
+As modalidades determinam como o ingresso é vendido dentro de um setor.
 
-Um setor pode possuir uma ou mais modalidades.
+O projeto suporta:
+
+```text
+QUANTITY
+SEAT
+```
+
+### QUANTITY
+
+Venda controlada por quantidade.
 
 Exemplo:
 
 ```text
-CAMAROTE
-├── NORMAL
-├── OPEN BAR
-├── OPEN FOOD
-└── OPEN BAR + FOOD
+Pista
+↓
+1000 lugares
+↓
+controle por quantidade
 ```
 
-Também existem modalidades utilizadas para formatos específicos de evento.
+### SEAT
+
+Venda utilizando assentos individuais.
 
 Exemplo:
 
 ```text
-AUTOGRAFO + LIVRO
-AUTOGRAFO + FOTO + LIVRO
-```
-
----
-
-# Modos de Ocupação
-
-As modalidades possuem dois modos principais.
-
-## `QUANTITY`
-
-Controle baseado somente em quantidade.
-
-Exemplos:
-
-```text
-PISTA
-ENTRADA GERAL
-WORKSHOP
-```
-
-Não existe escolha de um lugar específico.
-
----
-
-## `SEAT`
-
-Controle através de assentos individualmente identificados.
-
-Exemplos:
-
-```text
-CINEMA
-TEATRO
-CADEIRAS NUMERADAS
-```
-
-Os assentos pertencem à modalidade correspondente.
-
----
-
-# Assentos
-
-Modalidades `SEAT` possuem registros individuais de assento.
-
-Exemplo:
-
-```text
+Cadeira Inferior
+↓
 A1
 A2
 A3
@@ -745,356 +307,190 @@ A4
 ...
 ```
 
-Cada assento pode ser relacionado posteriormente ao checkout e ao ingresso adquirido.
-
-Modalidades `QUANTITY` não utilizam registros de assento.
+Cada assento possui disponibilidade própria.
 
 ---
 
 # Categorias de Preço
 
-As categorias iniciais incluem:
+Uma modalidade pode possuir diferentes categorias de ingresso.
+
+Exemplos:
 
 ```text
 INTEIRA
 MEIA
 MEIA SOCIAL
-VALOR UNICO
 ```
 
-As categorias não possuem estoque físico independente.
+As categorias podem participar de grupos de cota.
 
-Elas utilizam o estoque existente na modalidade e no lote.
-
----
-
-# Regra de Meia-Entrada
-
-As categorias:
-
-```text
-MEIA
-MEIA SOCIAL
-```
-
-pertencem ao grupo:
-
-```text
-MEIA ENTRADA
-```
-
-O grupo possui limite:
-
-```text
-50%
-```
-
-A regra é:
-
-```text
-MEIA + MEIA SOCIAL <= 50%
-```
-
-da capacidade aplicável.
+O Back-End controla os limites definidos para esses grupos.
 
 ---
 
 # Lotes
 
-Uma modalidade pode possuir múltiplos lotes.
+Os ingressos podem ser organizados em lotes.
 
-Exemplo:
+Cada lote possui:
 
-```text
-PISTA
-Capacidade: 800
+- quantidade;
+- preço;
+- ordem;
+- estado ativo.
 
-LOTE 1
-Quantidade: 400
+A progressão ocorre conforme a disponibilidade.
 
-LOTE 2
-Quantidade: 400
-```
+Para o comprador, os nomes e números dos lotes não são apresentados durante a seleção.
 
-Cada lote pode possuir preços diferentes.
-
-Exemplo:
-
-```text
-LOTE 1
-
-INTEIRA      R$ 220,00
-MEIA         R$ 110,00
-MEIA SOCIAL  R$ 140,00
-```
-
-As categorias compartilham a quantidade disponível no lote.
-
-Para o comprador, os nomes dos lotes não são exibidos.
-
-O sistema identifica o lote vigente automaticamente e retorna apenas os preços disponíveis para venda naquele momento.
+O Front-End exibe somente os preços correspondentes ao lote atualmente disponível para venda.
 
 ---
 
-# Valores Monetários
+# Seleção de Ingressos e Checkout
 
-Valores financeiros são armazenados em centavos.
+A Etapa 7 implementou o fluxo de compra no Front-End para o perfil `CLIENT`.
 
-Exemplo:
+Na página de detalhes de um evento publicado, o Cliente pode:
+
+- visualizar somente os preços do lote atualmente em venda;
+- selecionar ingressos de modalidades `QUANTITY`;
+- aumentar ou reduzir quantidades por categoria;
+- selecionar múltiplos assentos em modalidades `SEAT`;
+- definir individualmente a categoria de cada assento;
+- selecionar no máximo 10 ingressos por checkout;
+- visualizar subtotal, taxa de serviço e total;
+- iniciar o checkout autenticado;
+- executar pagamento simulado aprovado ou recusado;
+- visualizar a confirmação da compra;
+- receber a disponibilidade atualizada após a conclusão.
+
+Fluxo principal:
 
 ```text
-R$ 220,00 → 22000
-R$ 89,90  → 8990
+Evento publicado
+↓
+Selecionar ingressos
+↓
+QUANTITY ou SEAT
+↓
+Quantidade ou assentos
+↓
+Categoria de preço
+↓
+Máximo de 10 ingressos
+↓
+Login CLIENT
+↓
+Checkout
+↓
+Subtotal + taxa + total
+↓
+Pagamento simulado
+↓
+APPROVED ou REFUSED
 ```
 
-Isso reduz problemas de precisão com números decimais.
+---
+
+# Regra de Limite por Checkout
+
+Cada checkout aceita no máximo:
+
+```text
+10 ingressos
+```
+
+O limite considera a soma de:
+
+- ingressos por quantidade;
+- assentos selecionados.
+
+A interface impede a seleção acima desse limite e o Back-End também mantém sua própria validação.
 
 ---
 
 # Taxa de Serviço
 
-A taxa padrão definida para compras online é:
+O checkout utiliza taxa de serviço de:
 
 ```text
 12%
 ```
 
-A taxa é calculada separadamente do valor-base dos ingressos.
-
-Em uma revisão visual futura do checkout, a porcentagem não deverá ser destacada ao lado do rótulo da taxa; o cálculo e o valor cobrado permanecem inalterados.
-
-O pedido registra:
+O cálculo considera:
 
 ```text
 subtotal
-taxa de serviço
+serviceFee
 total
 ```
 
+A porcentagem é uma regra interna de cálculo e não precisa ser apresentada explicitamente ao Cliente na interface.
+
 ---
 
-# Checkout — Back-End
+# Checkout e Pagamento
 
-O Back-End possui o núcleo do checkout implementado.
-
-Rota para iniciar:
-
-```text
-POST /checkout
-```
-
-Rota para concluir:
-
-```text
-POST /checkout/:checkoutId/complete
-```
-
-As duas operações são destinadas a:
+O checkout exige autenticação como:
 
 ```text
 CLIENT
 ```
 
-autenticado.
+Caso o visitante inicie uma compra sem estar autenticado, ele é direcionado ao login e pode retornar ao fluxo posteriormente.
 
-O Front-End desse fluxo foi implementado na Etapa 7 e está integrado aos endpoints de checkout.
+O pagamento atual é simulado.
 
----
-
-# Limite por Checkout
-
-Foi definida a regra:
-
-```text
-máximo de 10 ingressos por checkout
-```
-
-O limite considera o total da compra.
-
-Exemplo:
-
-```text
-5 INTEIRA
-+
-5 MEIA
-=
-10
-```
-
-Permitido.
-
-```text
-11 ingressos
-```
-
-Bloqueado.
-
-O Front-End também impede visualmente a seleção do 11º ingresso.
-
----
-
-# Checkout `QUANTITY`
-
-Para modalidades:
-
-```text
-QUANTITY
-```
-
-o início do checkout não bloqueia estoque.
-
-A disponibilidade é validada novamente no momento da finalização.
-
-Fluxo:
-
-```text
-seleção
-↓
-checkout
-↓
-intenção de compra
-↓
-finalização
-↓
-validação atômica do estoque
-```
-
----
-
-# Checkout `SEAT`
-
-Para modalidades:
-
-```text
-SEAT
-```
-
-o assento selecionado precisa ser bloqueado temporariamente.
-
-Fluxo:
-
-```text
-seleção do assento
-↓
-checkout
-↓
-bloqueio
-↓
-prazo
-↓
-pagamento
-```
-
-O prazo definido para a reserva temporária é:
-
-```text
-10 minutos
-```
-
----
-
-# Concorrência
-
-O Back-End possui validações para impedir:
-
-- dupla venda;
-- dupla reserva de assento;
-- venda acima do estoque;
-- venda acima da capacidade;
-- ultrapassar limites de cota.
-
-Para `QUANTITY`, a estratégia utilizada é:
-
-```text
-first-to-complete wins
-```
-
-Ou seja, quando dois clientes disputam o estoque restante, a disponibilidade é decidida na conclusão da compra.
-
-Para `SEAT`, o bloqueio temporário impede que dois checkouts reservem corretamente o mesmo assento ao mesmo tempo.
-
----
-
-# Pagamento Simulado
-
-O projeto utiliza pagamento simulado para permitir a validação do fluxo sem gateway externo.
-
-Resultados possíveis:
+Estados principais:
 
 ```text
 APPROVED
 REFUSED
 ```
 
-## Pagamento aprovado
-
 Quando aprovado:
 
-- estoque é validado;
-- pedido é criado;
-- ingressos são criados;
-- valores são registrados;
-- checkout é concluído.
-
-## Pagamento recusado
+- o pedido é concluído;
+- os Tickets são gerados;
+- o estoque é atualizado;
+- assentos adquiridos permanecem indisponíveis;
+- QR Codes individuais ficam associados aos Tickets.
 
 Quando recusado:
 
-- não ocorre compra;
-- não são criados Tickets válidos;
-- checkout é cancelado;
-- assentos temporariamente reservados são liberados.
+- a compra não é concluída;
+- não são emitidos Tickets válidos.
 
 ---
 
-# Pedidos
+# Meus Ingressos
 
-Uma compra aprovada gera:
+A Etapa 8 implementou a área de ingressos do Cliente.
 
-```text
-Order
-```
-
-O pedido registra separadamente:
+Na rota:
 
 ```text
-subtotalInCents
-serviceFeeRateBps
-serviceFeeInCents
-totalInCents
+/cliente
 ```
 
----
+o usuário pode visualizar os Tickets pertencentes à sua conta.
 
-# Tickets
+Cada ingresso apresenta informações como:
 
-Cada ingresso comprado gera um registro individual:
+- evento;
+- imagem;
+- data;
+- local;
+- setor;
+- modalidade;
+- categoria;
+- assento, quando aplicável;
+- valor;
+- status.
 
-```text
-Ticket
-```
-
-Mesmo que uma compra tenha:
-
-```text
-quantity > 1
-```
-
-cada unidade se transforma em um Ticket próprio.
-
-Isso permite:
-
-- identificador individual;
-- QR Code individual;
-- status individual;
-- compartilhamento individual;
-- relacionamento com assento quando necessário.
-
----
-
-# Estados dos Tickets
-
-Os principais estados são:
+Estados suportados:
 
 ```text
 VALID
@@ -1102,182 +498,161 @@ USED
 CANCELLED
 ```
 
-## `VALID`
+---
 
-Ingresso válido e ainda não utilizado.
+# QR Code do Ingresso
 
-## `USED`
+Cada Ticket possui um QR Code privado.
 
-Ingresso já validado na entrada.
+O QR utiliza um token assinado contendo informações relacionadas ao:
 
-## `CANCELLED`
+```text
+ticketId
+orderId
+```
 
-Ingresso cancelado.
+O token é assinado utilizando segredo privado do servidor.
 
-Esses estados também são apresentados visualmente na Área do Cliente.
+O banco não armazena diretamente o token completo utilizado pelo QR.
+
+É armazenado um hash utilizado para verificar sua integridade.
+
+O QR privado somente pode ser solicitado pelo Cliente proprietário do Ticket.
 
 ---
 
-# QR Code
+# Compartilhamento Público
 
-O Back-End possui suporte a QR Code assinado.
-
-Foi criada uma chave própria:
-
-```text
-QR_SECRET
-```
-
-separada de:
-
-```text
-JWT_SECRET
-```
-
-O QR utiliza assinatura:
-
-```text
-HS256
-```
-
-e o token original não é armazenado diretamente no banco.
-
-É persistido:
-
-```text
-qrCodeHash
-```
-
-gerado através de:
-
-```text
-SHA-256
-```
-
----
-
-# QR Code Privado
-
-Endpoint:
-
-```text
-GET /tickets/:ticketId/qr
-```
-
-O QR privado somente pode ser acessado pelo proprietário autenticado do ingresso.
-
-A interface de visualização foi implementada na Etapa 8.
-
-Na Área do Cliente, o QR é carregado somente quando o usuário abre um ingresso específico.
-
-O Back-End verifica:
-
-```text
-Ticket.id = ticketId
-+
-Order.clientId = usuário autenticado
-```
-
-antes de permitir o acesso.
-
-Quando outro Cliente tenta acessar o Ticket, a aplicação não revela a existência do recurso como pertencente a outra pessoa.
-
-O QR Code é retornado em formato:
-
-```text
-data:image/png;base64,...
-```
-
-e renderizado diretamente pela interface.
-
----
-
-# Separação entre QR e Compartilhamento
-
-Existem duas informações diferentes:
-
-```text
-QR privado
-→ credencial utilizada na entrada
-```
-
-e:
+Cada Ticket também possui um:
 
 ```text
 sharedToken
-→ visualização pública do ingresso
 ```
 
-O `sharedToken` não funciona como credencial de entrada.
-
-O QR privado não é retornado através da rota pública de compartilhamento.
-
----
-
-# Compartilhamento Público do Ingresso
-
-A Etapa 8 integrou ao Front-End o compartilhamento público seguro.
-
-Endpoint:
-
-```text
-GET /tickets/shared/:sharedToken
-```
-
-Rota no Front-End:
+Ele permite criar um endereço público:
 
 ```text
 /ingresso/:sharedToken
 ```
 
-O link pode ser acessado sem autenticação.
+Esse endereço pode ser aberto sem autenticação.
 
-A página pública pode apresentar:
+A página compartilhada apresenta informações permitidas sobre o ingresso e o evento.
 
-- identificação do ingresso;
-- status;
-- título do evento;
-- imagem;
-- descrição;
-- data;
-- local;
-- endereço;
-- cidade;
-- estado;
-- país;
-- setor;
-- modalidade;
-- categoria;
-- assento quando aplicável;
-- valor individual.
+Ela não retorna:
 
-A visualização pública não expõe:
+- QR Code privado;
+- hash do QR;
+- token assinado;
+- `orderId`;
+- informações pessoais do comprador.
 
-```text
-qrCode
-qrCodeHash
-token assinado
-orderId
-clientId
-email
-dados pessoais do comprador
-```
-
-Assim, compartilhar o ingresso não compartilha a credencial utilizada pela Portaria.
+O `sharedToken` não funciona como credencial de entrada.
 
 ---
 
-# Validação pela Portaria
+# Portal da Portaria
 
-O Back-End disponibiliza:
+A Etapa 9 implementou a interface utilizada pelo perfil:
+
+```text
+CHECKIN
+```
+
+para controle de acesso aos eventos.
+
+A Portaria possui duas formas de fornecer o QR para validação:
+
+```text
+Leitura pela câmera
+```
+
+ou:
+
+```text
+Inserção manual
+```
+
+As duas utilizam o mesmo endpoint e as mesmas regras de segurança no Back-End.
+
+---
+
+# Leitura de QR Code pela Câmera
+
+O Front-End utiliza:
+
+```text
+@zxing/browser
+```
+
+para leitura do QR Code através da câmera do dispositivo.
+
+O fluxo é:
+
+```text
+Ativar câmera
+↓
+Autorizar acesso
+↓
+Apontar para QR Code
+↓
+Código identificado
+↓
+Token capturado
+↓
+Câmera interrompida
+↓
+API de check-in
+↓
+Resultado
+```
+
+A interface também trata:
+
+- ausência de câmera;
+- falha de acesso;
+- permissão recusada;
+- ativação e desativação manual.
+
+---
+
+# Validação de Ingressos
+
+A validação utiliza:
 
 ```text
 POST /checkin/validate
 ```
 
-O fluxo permite validar o ingresso e impedir reutilização.
+A rota exige:
 
-Mudança esperada:
+```text
+authenticate
+authorize("CHECKIN")
+```
+
+O Back-End valida:
+
+- assinatura do token;
+- estrutura do payload;
+- existência do Ticket;
+- relação com o pedido;
+- hash do QR;
+- status atual do Ticket.
+
+O Front-End apenas captura o token e apresenta o resultado da API.
+
+---
+
+# Uso Único do Ingresso
+
+Um Ticket válido começa com:
+
+```text
+VALID
+```
+
+Após uma entrada autorizada:
 
 ```text
 VALID
@@ -1285,141 +660,126 @@ VALID
 USED
 ```
 
-O QR Code já possui estrutura e segurança necessárias para essa validação.
+O mesmo QR apresentado novamente não autoriza uma segunda entrada.
 
-A interface visual da Portaria será desenvolvida na Etapa 9.
-
----
-
-# Catálogo Público
-
-O catálogo pode ser acessado sem autenticação.
-
-A API pública utiliza:
+A Portaria apresenta:
 
 ```text
-GET /events
+JÁ UTILIZADO
 ```
 
-para listagem e:
+para esse cenário.
+
+Também são tratados:
 
 ```text
-GET /events/:eventId
-```
-
-para detalhes.
-
-Somente eventos com:
-
-```text
-status = PUBLISHED
-```
-
-são apresentados publicamente.
-
----
-
-# Filtros do Catálogo
-
-O catálogo possui filtros para:
-
-- texto;
-- categoria;
-- cidade;
-- mês;
-- ano.
-
-Os filtros podem ser combinados.
-
-Também existe suporte a categoria pela URL:
-
-```text
-/eventos?categoria=...
+VÁLIDO
+INVÁLIDO
+CANCELADO
+JÁ UTILIZADO
 ```
 
 ---
 
-# Eventos de Demonstração
+# Segurança do QR Code
 
-Os seeds possuem eventos demonstrativos que representam diferentes cenários da aplicação.
+O QR Code e o link público de compartilhamento possuem responsabilidades diferentes.
 
-Entre eles:
+```text
+QR privado
+↓
+credencial de entrada
+```
 
-## Filhos do Éden: Paraíso Perdido
+```text
+sharedToken
+↓
+visualização pública
+```
 
-Exemplo de:
+Durante os testes foi confirmado que utilizar o endereço público `/ingresso/:sharedToken` na Portaria resulta em QR inválido.
 
-- teatro;
-- assentos;
-- lotes.
+Isso impede que o simples compartilhamento da página pública forneça uma credencial válida para entrada no evento.
 
-## Epica - Live in Brazil
+---
 
-Exemplo de:
+# Reservas e Concorrência
 
-- show;
-- múltiplos setores;
-- pista;
-- camarote;
-- modalidades;
-- assentos;
-- múltiplos lotes.
+Modalidades `QUANTITY` não utilizam bloqueio temporário.
 
-## Lançamento e Autógrafos — Enciclopédia Serial Killers: A Maldade de A a Z
+O estoque é validado atomicamente na finalização.
 
-Exemplo de:
+Modalidades `SEAT` utilizam bloqueio temporário de assentos durante o checkout.
 
-- evento literário;
-- controle por quantidade;
-- modalidades especiais.
+Se a sessão expirar:
 
-## Amanhecer - Parte 1 | Relançamento
+- a sessão passa para `EXPIRED`;
+- assentos ainda não vendidos são liberados.
 
-Exemplo de:
+Tickets já efetivamente vendidos não têm seus assentos liberados.
 
-- cinema;
-- sala;
-- assentos;
-- categorias de preço.
+---
+
+# Capacidades
+
+O Back-End valida múltiplos níveis de capacidade:
+
+```text
+Evento
+↓
+Setor
+↓
+Modalidade
+↓
+Lote
+```
+
+Uma compra não pode ultrapassar nenhum desses limites.
+
+Também são consideradas cotas associadas às categorias de preço.
 
 ---
 
 # Tecnologias
-
-## Back-End
-
-- Node.js
-- Express
-- Prisma ORM
-- SQLite
-- JSON Web Token (`jsonwebtoken`)
-- bcryptjs
-- CORS
-- dotenv
-- qrcode
 
 ## Front-End
 
 - React
 - Vite
 - React Router
-- JavaScript
 - CSS
-- ESLint
+- `@zxing/browser`
+
+## Back-End
+
+- Node.js
+- Express
+- Prisma ORM
+- JWT
+- bcrypt
+- QRCode
+
+## Banco de Dados
+
+- SQLite
+
+## Ferramentas
+
+- Git
+- GitHub
+- npm
+- PowerShell
+- VS Code
 
 ---
 
-# Estrutura do Projeto
+# Estrutura Geral
 
 ```text
-EventsProject/
+EventosProject/
 │
 ├── backend/
 │   ├── prisma/
-│   │   ├── migrations/
-│   │   ├── schema.prisma
-│   │   └── seed.js
-│   │
 │   ├── src/
 │   │   ├── controllers/
 │   │   ├── lib/
@@ -1427,9 +787,7 @@ EventsProject/
 │   │   ├── routes/
 │   │   ├── services/
 │   │   └── server.js
-│   │
-│   ├── package.json
-│   └── .env.example
+│   └── package.json
 │
 ├── frontend/
 │   ├── src/
@@ -1439,270 +797,85 @@ EventsProject/
 │   │   ├── pages/
 │   │   ├── routes/
 │   │   ├── services/
-│   │   ├── App.jsx
-│   │   ├── index.css
-│   │   └── main.jsx
-│   │
-│   ├── package.json
-│   └── vite.config.js
+│   │   └── App.jsx
+│   └── package.json
 │
 ├── documents/
 │   └── etapas_desenvolvimento.md
 │
-├── .gitignore
 └── README.md
 ```
 
 ---
 
-# Configuração do Back-End
+# Execução do Projeto
+
+## Back-End
 
 Entre na pasta:
 
-```bash
+```powershell
 cd backend
 ```
 
 Instale as dependências:
 
-```bash
+```powershell
 npm install
 ```
 
-Crie o arquivo:
+Execute:
 
-```text
-.env
-```
-
-utilizando como referência:
-
-```text
-backend/.env.example
-```
-
-Execute as migrations:
-
-```bash
-npx prisma migrate dev
-```
-
-Popule o banco:
-
-```bash
-npx prisma db seed
-```
-
-ou, conforme os scripts disponíveis:
-
-```bash
-npm run seed
-```
-
-Inicie a API:
-
-```bash
+```powershell
 npm run dev
 ```
 
----
+O servidor utiliza:
 
-# Configuração do Front-End
+```text
+http://localhost:3000
+```
+
+## Front-End
 
 Em outro terminal:
 
-```bash
+```powershell
 cd frontend
 ```
 
 Instale as dependências:
 
-```bash
+```powershell
 npm install
 ```
 
-Inicie o ambiente:
+Execute:
 
-```bash
+```powershell
 npm run dev
 ```
 
-O Vite exibirá no terminal o endereço local utilizado pelo Front-End.
+O Vite disponibiliza a aplicação localmente, normalmente em:
 
----
-
-# Executando o Projeto
-
-São necessários dois terminais.
-
-## Terminal 1 — Back-End
-
-```bash
-cd backend
-npm run dev
-```
-
-## Terminal 2 — Front-End
-
-```bash
-cd frontend
-npm run dev
+```text
+http://localhost:5173
 ```
 
 ---
 
-# Prisma Studio
+# Variáveis de Ambiente
 
-Para inspecionar o banco:
+O Back-End utiliza variáveis de ambiente para informações que não devem permanecer diretamente no código.
 
-```bash
-cd backend
-npx prisma studio
-```
-
-O Prisma Studio permite visualizar entidades como:
-
-- usuários;
-- eventos;
-- setores;
-- modalidades;
-- categorias;
-- lotes;
-- preços;
-- assentos;
-- checkouts;
-- pedidos;
-- ingressos.
-
----
-
-# Usuários de Demonstração
-
-| Perfil | E-mail | Senha |
-|---|---|---|
-| Organizador | `organizador@teste.com` | `123456` |
-| Cliente | `cliente1@teste.com` | `123456` |
-| Cliente | `cliente2@teste.com` | `123456` |
-| Portaria | `portaria@teste.com` | `123456` |
-
-Essas credenciais são utilizadas exclusivamente no ambiente de desenvolvimento e demonstração.
-
-Novos usuários cadastrados através do endpoint público seguem a política de senha definida pela aplicação.
-
----
-
-# Principais Endpoints
-
-## Autenticação
+Entre elas:
 
 ```text
-POST /auth/register
-POST /auth/login
-GET  /auth/me
+JWT_SECRET
+QR_SECRET
 ```
 
-## Eventos públicos
-
-```text
-GET /events
-GET /events/:eventId
-```
-
-## Organizador
-
-```text
-GET  /events/templates
-GET  /events/organizer/mine
-GET  /events/organizer/:eventId
-
-POST /events/organizer
-PUT  /events/organizer/:eventId
-```
-
-## Configuração do evento
-
-```text
-GET /events/organizer/:eventId/configuration
-```
-
-### Setores
-
-```text
-POST   /events/organizer/:eventId/sectors
-DELETE /events/organizer/:eventId/sectors/:sectorId
-```
-
-### Modalidades
-
-```text
-POST   /events/organizer/:eventId/sectors/:sectorId/modalities
-DELETE /events/organizer/:eventId/modalities/:modalityId
-```
-
-### Categorias de preço
-
-```text
-POST   /events/organizer/:eventId/modalities/:modalityId/categories
-DELETE /events/organizer/:eventId/modalities/:modalityId/categories/:categoryId
-```
-
-### Lotes
-
-```text
-POST   /events/organizer/:eventId/modalities/:modalityId/batches
-DELETE /events/organizer/:eventId/modalities/:modalityId/batches/:batchId
-```
-
-### Assentos
-
-```text
-POST   /events/organizer/:eventId/modalities/:modalityId/seats
-DELETE /events/organizer/:eventId/modalities/:modalityId/seats/:seatId
-```
-
-## Checkout
-
-```text
-POST /checkout
-POST /checkout/:checkoutId/complete
-```
-
-## Tickets
-
-```text
-GET /tickets/mine
-GET /tickets/:ticketId/qr
-GET /tickets/shared/:sharedToken
-```
-
-## Portaria
-
-```text
-POST /checkin/validate
-```
-
----
-
-# Segurança
-
-Entre as medidas existentes no projeto estão:
-
-- senhas armazenadas com hash;
-- autenticação JWT;
-- expiração de token;
-- RBAC;
-- proteção das rotas privadas;
-- restrição de operações ao proprietário do recurso;
-- QR Code assinado;
-- segredo do QR separado do JWT;
-- armazenamento apenas do hash do token do QR;
-- proteção contra reutilização do ingresso;
-- validação de disponibilidade no Back-End;
-- operações de concorrência para assentos e estoque;
-- QR privado acessível somente pelo proprietário;
-- isolamento dos ingressos entre Clientes;
-- compartilhamento público sem exposição do QR;
-- separação entre `sharedToken` e credencial de entrada.
+Segredos reais não devem ser enviados ao repositório.
 
 ---
 
@@ -1757,60 +930,19 @@ documents/etapas_desenvolvimento.md
 
 # Próxima Etapa
 
-## Etapa 9 — Portal da Portaria
+## Etapa 10 — Busca Avançada, Filtros & Métricas
 
-A próxima etapa desenvolverá a interface destinada ao perfil:
+Com os principais fluxos de Organizador, Cliente, compra, ingressos e Portaria implementados, a próxima etapa será dedicada à ampliação dos recursos de consulta e acompanhamento da plataforma.
 
-```text
-CHECKIN
-```
+A Etapa 10 está prevista para trabalhar principalmente com:
 
-O Back-End já possui o endpoint:
+- evolução da busca;
+- filtros adicionais;
+- métricas;
+- indicadores;
+- informações úteis para acompanhamento dos eventos.
 
-```text
-POST /checkin/validate
-```
-
-responsável pela validação do QR Code.
-
-O fluxo previsto é:
-
-```text
-CHECKIN
-↓
-Portal da Portaria
-↓
-ler QR Code pela câmera
-ou
-informar QR manualmente
-↓
-POST /checkin/validate
-↓
-validar assinatura e Ticket
-↓
-resultado
-```
-
-A interface deverá diferenciar situações como:
-
-```text
-VÁLIDO
-INVÁLIDO
-JÁ UTILIZADO
-EVENTO ERRADO
-```
-
-Quando um ingresso válido é utilizado corretamente:
-
-```text
-VALID
-↓
-USED
-```
-
-O Back-End já possui proteção contra reutilização do mesmo ingresso.
-
-A Etapa 9 será responsável por disponibilizar esse fluxo através da interface da Portaria.
+O escopo detalhado será validado antes da implementação para evitar duplicar funcionalidades de busca e filtros que já existem atualmente.
 
 ---
 

@@ -9048,3 +9048,295 @@ O perfil `CLIENT` agora consegue visualizar seus Tickets, consultar suas informa
 A página compartilhada pode ser acessada sem login e mantém protegida a credencial utilizada na entrada do evento.
 
 Com isso, a Etapa 8 — Meus Ingressos & Visualização de QR Code encontra-se concluída e o projeto está preparado para continuar com a Etapa 9 — Portal da Portaria.
+
+---
+
+# [Etapa 9] Portal da Portaria & Validação de Ingressos
+
+**Status:** Concluído
+
+## Objetivo da Etapa
+
+Implementar o Portal da Portaria no Front-End e integrá-lo ao sistema de validação de ingressos já existente no Back-End, permitindo que usuários com perfil `CHECKIN` realizem o controle de entrada dos eventos através do QR Code individual de cada Ticket.
+
+A etapa passou a permitir a validação tanto pela leitura do QR Code através da câmera quanto pela inserção manual do token, mantendo a regra de utilização única do ingresso e impedindo que links públicos de compartilhamento sejam utilizados como credencial de entrada.
+
+## O que foi feito
+
+- Implementação da Área da Portaria na página `CheckinPage.jsx`.
+- Manutenção da rota `/portaria` como área protegida exclusiva do perfil `CHECKIN`.
+- Integração do Front-End com o endpoint `POST /checkin/validate`.
+- Criação de `frontend/src/services/checkinService.js` para centralizar a comunicação com a API de check-in.
+- Envio do token contido no QR Code para validação no Back-End.
+- Implementação da validação manual através de campo próprio para inserção do token.
+- Exibição visual do resultado da validação.
+- Tratamento dos principais estados de resposta:
+  - ingresso válido;
+  - ingresso já utilizado;
+  - ingresso cancelado;
+  - QR Code inválido.
+- Exibição de `VÁLIDO` quando a entrada é autorizada.
+- Exibição de `JÁ UTILIZADO` quando um Ticket já consumido é apresentado novamente.
+- Exibição de `CANCELADO` para ingresso cancelado.
+- Exibição de `INVÁLIDO` para tokens que não correspondem a um QR Code válido do Boraí.
+- Exibição das informações retornadas pelo Back-End após uma validação válida.
+- Implementação da ação para limpar a validação atual e iniciar uma nova.
+- Criação da interface específica da Portaria em `CheckinPage.css`.
+- Criação de estados visuais diferentes para validações autorizadas e recusadas.
+- Implementação de layout responsivo para utilização da Portaria em diferentes tamanhos de tela.
+- Instalação da biblioteca `@zxing/browser` no Front-End.
+- Implementação da leitura de QR Code através da câmera do dispositivo.
+- Solicitação de permissão de acesso à câmera pelo navegador.
+- Detecção automática do QR Code apresentado diante da câmera.
+- Interrupção da câmera após a identificação de um QR Code.
+- Envio automático do conteúdo identificado para o mesmo fluxo de validação utilizado pela entrada manual.
+- Criação de opção para alternar entre:
+  - leitura pela câmera;
+  - inserção manual.
+- Tratamento da ausência de câmera disponível.
+- Tratamento de falhas ou recusas de permissão de acesso à câmera.
+- Inclusão de opção para ativar e desativar a câmera.
+- Manutenção de uma única regra de validação no Back-End independentemente da forma utilizada para capturar o token.
+
+## Validação do ingresso
+
+A Portaria utiliza:
+
+`POST /checkin/validate`
+
+O Front-End envia o conteúdo do QR Code no corpo da requisição.
+
+A rota permanece protegida por autenticação e autorização do perfil `CHECKIN`.
+
+O Back-End é responsável por verificar:
+
+- assinatura do token;
+- estrutura do payload;
+- existência do Ticket;
+- relação entre `ticketId` e `orderId`;
+- integridade do QR através do hash armazenado;
+- status atual do Ticket.
+
+A interface da Portaria não decide se um ingresso é válido. Ela apenas captura o token, envia para a API e apresenta o resultado retornado pelo Back-End.
+
+## Utilização única do ingresso
+
+Foi mantida a regra de que cada Ticket pode autorizar somente uma entrada.
+
+Quando um Ticket com status:
+
+`VALID`
+
+é validado corretamente pela Portaria, seu estado passa para:
+
+`USED`
+
+Uma nova tentativa de utilização do mesmo QR Code não autoriza uma segunda entrada.
+
+Essa regra permanece controlada pelo Back-End, evitando que alterações no Front-End permitam reutilizar um ingresso.
+
+## Leitura por câmera
+
+Foi adicionada a biblioteca:
+
+`@zxing/browser`
+
+para permitir a leitura de QR Codes através da câmera disponível no navegador.
+
+A Área da Portaria passou a oferecer a opção `Ler pela câmera`.
+
+Ao ativar essa opção:
+
+- o navegador solicita acesso à câmera;
+- o vídeo da câmera é apresentado na interface;
+- o leitor procura um QR Code;
+- ao encontrar um código, seu conteúdo é capturado;
+- a câmera é interrompida;
+- o token é enviado automaticamente ao endpoint de check-in;
+- o resultado da validação é apresentado na tela.
+
+Após a validação, a Portaria pode iniciar a leitura de outro ingresso.
+
+## Validação manual
+
+Foi mantida uma segunda forma de operação através da opção `Inserir manualmente`.
+
+Nesse modo, o conteúdo real de um QR Code pode ser inserido diretamente no campo de validação.
+
+A validação manual utiliza exatamente o mesmo endpoint e as mesmas regras da leitura pela câmera.
+
+Essa opção também permite testar o sistema em ambientes de desenvolvimento nos quais não seja possível apresentar fisicamente um QR Code diante da câmera disponível.
+
+## Separação entre QR Code e link compartilhável
+
+Durante os testes também foi validada a separação implementada anteriormente entre o QR Code privado e o `sharedToken`.
+
+O endereço público:
+
+`/ingresso/:sharedToken`
+
+serve somente para compartilhamento das informações permitidas do ingresso.
+
+Esse endereço não é uma credencial de entrada.
+
+Ao tentar utilizar o link público na Portaria, o sistema rejeitou corretamente o conteúdo como QR Code inválido.
+
+Dessa forma, continuam existindo duas credenciais com responsabilidades diferentes:
+
+- QR Code privado: utilizado para entrada e validação pela Portaria;
+- `sharedToken`: utilizado exclusivamente para visualização pública do ingresso.
+
+## Teste manual em ambiente local
+
+Durante o desenvolvimento foi encontrada uma limitação física para testar a câmera utilizando o próprio computador, pois o QR Code e a câmera estavam disponíveis no mesmo equipamento e o ambiente estava sendo executado através de `localhost`.
+
+Para permitir a validação completa do fluxo sem modificar a regra de segurança do sistema, foi utilizado temporariamente um log de desenvolvimento no Back-End para visualizar o token real codificado no QR Code.
+
+O token foi utilizado exclusivamente para o teste da entrada manual.
+
+Após a conclusão dos testes, esse código temporário foi removido do `ticketController.js`.
+
+O token privado do QR Code, portanto, não permanece sendo exibido no terminal na versão final da Etapa 9.
+
+## Arquivos principais envolvidos
+
+### Back-End
+
+- `backend/src/controllers/checkinController.js`
+- `backend/src/routes/checkinRoutes.js`
+- `backend/src/controllers/ticketController.js`
+- `backend/src/services/qrCodeService.js`
+
+### Front-End
+
+- `frontend/src/pages/CheckinPage.jsx`
+- `frontend/src/pages/CheckinPage.css`
+- `frontend/src/services/checkinService.js`
+- `frontend/package.json`
+- `frontend/package-lock.json`
+
+## Testes realizados
+
+### Acesso à Portaria
+
+- [x] Login com perfil `CHECKIN` realizado.
+- [x] Rota `/portaria` acessada.
+- [x] Interface da Portaria carregada corretamente.
+- [x] Área protegida mantida para o perfil correspondente.
+
+### Validação manual
+
+- [x] Campo de inserção manual funcionando.
+- [x] Token real de um Ticket enviado para validação.
+- [x] Ticket válido reconhecido.
+- [x] Entrada autorizada.
+- [x] Ticket alterado de `VALID` para `USED`.
+- [x] Mesmo token enviado novamente.
+- [x] Segunda utilização recusada.
+- [x] Estado `JÁ UTILIZADO` reconhecido corretamente.
+
+### QR inválido
+
+- [x] Conteúdo inválido enviado manualmente.
+- [x] Token rejeitado pelo Back-End.
+- [x] Interface apresentou `INVÁLIDO`.
+- [x] Entrada não autorizada.
+
+### Link público
+
+- [x] Link `/ingresso/:sharedToken` utilizado como tentativa de check-in.
+- [x] Link público rejeitado como QR Code inválido.
+- [x] `sharedToken` não permitiu entrada.
+- [x] Separação entre compartilhamento e credencial de entrada confirmada.
+
+### Câmera
+
+- [x] Biblioteca de leitura de QR instalada.
+- [x] Opção de leitura pela câmera apresentada.
+- [x] Câmera ativada corretamente pelo navegador.
+- [x] Interface de captura apresentada.
+- [x] Alternância entre câmera e entrada manual funcionando.
+
+A leitura física de um QR Code pela câmera não foi concluída no ambiente local devido à limitação de utilização do mesmo computador para apresentação e captura do código. Entretanto, a ativação da câmera foi validada e o fluxo completo de processamento do token foi testado através da entrada manual utilizando o conteúdo real do QR Code.
+
+## Critério de aceite da Etapa 9
+
+O critério da Etapa 9 era disponibilizar uma interface funcional para a Portaria e integrar o Front-End ao mecanismo seguro de validação de Tickets.
+
+Ao final da etapa foi confirmado que:
+
+- somente o perfil `CHECKIN` possui acesso ao Portal da Portaria;
+- a Portaria consegue enviar um QR para validação;
+- um Ticket válido autoriza a entrada;
+- o Ticket passa de `VALID` para `USED`;
+- o mesmo ingresso não pode ser utilizado novamente;
+- QR Codes inválidos são recusados;
+- links públicos de compartilhamento não funcionam como credencial de entrada;
+- a entrada manual funciona;
+- a câmera pode ser ativada para leitura de QR Codes;
+- o mecanismo de leitura por câmera utiliza o mesmo processo de validação do modo manual;
+- o código temporário utilizado para auxiliar os testes locais foi removido.
+
+Portanto, o critério principal da Etapa 9 foi atendido.
+
+## Uso de IA nesta Etapa
+
+### Geração e Refatoração de Código
+
+A IA foi utilizada como apoio na implementação e revisão de:
+
+- interface da Área da Portaria;
+- serviço de integração com o endpoint de check-in;
+- validação manual;
+- tratamento visual dos resultados;
+- integração da biblioteca de leitura de QR Code;
+- controle da câmera;
+- captura automática do QR;
+- CSS e responsividade;
+- tratamento dos estados de validação.
+
+### Resolução de Problemas
+
+A IA auxiliou no diagnóstico e tratamento de:
+
+- diferença entre o `sharedToken` e o token privado do QR;
+- tentativa de utilizar o link público como credencial de entrada;
+- limitação para testar fisicamente o QR Code utilizando apenas um computador;
+- estratégia temporária para obter o conteúdo real do QR durante o teste;
+- remoção do código temporário após a validação;
+- organização do fluxo entre leitura manual e câmera.
+
+### Decisões Humanas / Manuais
+
+Foram realizadas manualmente:
+
+- validação visual da Área da Portaria;
+- teste de ativação da câmera;
+- autorização de acesso à câmera pelo navegador;
+- teste da entrada manual;
+- teste com token real de um ingresso;
+- confirmação da mudança de `VALID` para `USED`;
+- tentativa de reutilização do mesmo ingresso;
+- confirmação de bloqueio da segunda utilização;
+- teste com QR inválido;
+- teste utilizando o link público de compartilhamento;
+- confirmação de que o `sharedToken` não permite entrada;
+- decisão de utilizar temporariamente o token no terminal para viabilizar o teste local;
+- remoção do mecanismo temporário após os testes;
+- validação final do funcionamento da etapa.
+
+A IA foi utilizada como ferramenta de apoio ao desenvolvimento, enquanto os testes funcionais, decisões de produto e validação final permaneceram sob avaliação humana.
+
+---
+
+# Resultado da Etapa 9
+
+Ao final da Etapa 9, o Boraí passou a possuir um Portal da Portaria funcional integrado ao sistema de Tickets e QR Codes.
+
+O perfil `CHECKIN` consegue acessar uma interface exclusiva para controle de entrada, realizar a validação através do token do QR Code e utilizar a câmera do dispositivo como leitor.
+
+Ingressos válidos são consumidos na primeira utilização e passam para o estado `USED`, impedindo uma segunda entrada com a mesma credencial. Tokens inválidos e links públicos de compartilhamento são recusados.
+
+A separação entre visualização pública e credencial privada de entrada foi preservada, mantendo o QR Code como mecanismo exclusivo de validação na Portaria.
+
+Com isso, a Etapa 9 — Portal da Portaria & Validação de Ingressos encontra-se concluída.

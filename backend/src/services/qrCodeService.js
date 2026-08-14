@@ -3,7 +3,8 @@ import jwt from "jsonwebtoken";
 import QRCode from "qrcode";
 
 function getQrSecret() {
-    const secret = process.env.QR_SECRET;
+    const secret =
+        process.env.QR_SECRET;
 
     if (!secret) {
         throw new Error(
@@ -34,18 +35,25 @@ export function createTicketQrToken({
     ticketId,
     orderId,
 }) {
-    const secret = getQrSecret();
+    const secret =
+        getQrSecret();
 
     return jwt.sign(
         {
-            type: "TICKET",
+            type:
+                "TICKET",
+
             ticketId,
+
             orderId,
         },
         secret,
         {
-            algorithm: "HS256",
-            noTimestamp: true,
+            algorithm:
+                "HS256",
+
+            noTimestamp:
+                true,
         }
     );
 }
@@ -54,20 +62,27 @@ export function createTicketQrToken({
 // VALIDAÇÃO DA ASSINATURA
 // ======================================================
 
-export function validateTicketQrToken(token) {
-    const secret = getQrSecret();
+export function validateTicketQrToken(
+    token
+) {
+    const secret =
+        getQrSecret();
 
     try {
-        const payload = jwt.verify(
-            token,
-            secret,
-            {
-                algorithms: ["HS256"],
-            }
-        );
+        const payload =
+            jwt.verify(
+                token,
+                secret,
+                {
+                    algorithms: [
+                        "HS256",
+                    ],
+                }
+            );
 
         if (
-            payload.type !== "TICKET" ||
+            payload.type !==
+                "TICKET" ||
             !payload.ticketId ||
             !payload.orderId
         ) {
@@ -93,11 +108,19 @@ export function validateTicketQrToken(token) {
 // O token completo não é armazenado.
 // ======================================================
 
-export function hashTicketQrToken(token) {
+export function hashTicketQrToken(
+    token
+) {
     return crypto
-        .createHash("sha256")
-        .update(token)
-        .digest("hex");
+        .createHash(
+            "sha256"
+        )
+        .update(
+            token
+        )
+        .digest(
+            "hex"
+        );
 }
 
 // ======================================================
@@ -113,7 +136,9 @@ export function compareTicketQrHash(
     }
 
     const generatedHash =
-        hashTicketQrToken(token);
+        hashTicketQrToken(
+            token
+        );
 
     const generatedBuffer =
         Buffer.from(
@@ -134,9 +159,50 @@ export function compareTicketQrHash(
         return false;
     }
 
-    return crypto.timingSafeEqual(
-        generatedBuffer,
-        storedBuffer
+    return crypto
+        .timingSafeEqual(
+            generatedBuffer,
+            storedBuffer
+        );
+}
+
+// ======================================================
+// TOKEN PARA TESTE MANUAL
+// ======================================================
+//
+// Usado somente durante o desenvolvimento.
+//
+// Permite visualizar no terminal o conteúdo real
+// codificado no QR Code para testar a Portaria
+// sem depender de uma segunda câmera.
+//
+// Nunca deve exibir o token em produção.
+// ======================================================
+
+export function logTicketQrTokenForDevelopment(
+    token
+) {
+    if (
+        process.env.NODE_ENV ===
+        "production"
+    ) {
+        return;
+    }
+
+    console.log(
+        "\n========================================"
+    );
+
+    console.log(
+        "TOKEN DO QR PARA TESTE MANUAL:"
+    );
+
+    console.log(
+        token
+    );
+
+    console.log(
+        "========================================\n"
     );
 }
 
@@ -150,9 +216,14 @@ export async function generateTicketQrDataUrl(
     return QRCode.toDataURL(
         token,
         {
-            errorCorrectionLevel: "M",
-            margin: 2,
-            width: 320,
+            errorCorrectionLevel:
+                "M",
+
+            margin:
+                2,
+
+            width:
+                320,
         }
     );
 }

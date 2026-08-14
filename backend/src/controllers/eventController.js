@@ -883,6 +883,9 @@ export async function createOrganizerEvent(
 
             dateTime,
             categoryTemplateId,
+
+            source = "LOCAL",
+            externalId,
         } = req.body;
 
         if (
@@ -899,6 +902,56 @@ export async function createOrganizerEvent(
                 .json({
                     message:
                         "Preencha todos os campos obrigatórios do evento.",
+                });
+        }
+
+        const normalizedSource =
+            String(
+                source || "LOCAL"
+            )
+                .trim()
+                .toUpperCase();
+
+        const allowedSources =
+            [
+                "LOCAL",
+                "TMDB",
+                "TICKETMASTER",
+            ];
+
+        if (
+            !allowedSources.includes(
+                normalizedSource
+            )
+        ) {
+            return res
+                .status(400)
+                .json({
+                    message:
+                        "Origem do evento inválida.",
+                });
+        }
+
+        const normalizedExternalId =
+            externalId ===
+                undefined ||
+            externalId ===
+                null
+                ? null
+                : String(
+                      externalId
+                  ).trim();
+
+        if (
+            normalizedSource !==
+                "LOCAL" &&
+            !normalizedExternalId
+        ) {
+            return res
+                .status(400)
+                .json({
+                    message:
+                        "Eventos externos precisam informar o identificador da origem.",
                 });
         }
 
@@ -981,7 +1034,13 @@ export async function createOrganizerEvent(
                         null,
 
                     source:
-                        "LOCAL",
+                        normalizedSource,
+
+                    externalId:
+                        normalizedSource ===
+                        "LOCAL"
+                            ? null
+                            : normalizedExternalId,
 
                     capacity:
                         parsedCapacity,

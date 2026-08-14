@@ -1,8 +1,11 @@
-import { Router } from "express";
+import {
+    Router,
+} from "express";
 
 import {
     getSharedTicket,
     getTicketQr,
+    listMyTickets,
 } from "../controllers/ticketController.js";
 
 import {
@@ -13,7 +16,8 @@ import {
     authorize,
 } from "../middleware/roleMiddleware.js";
 
-const router = Router();
+const router =
+    Router();
 
 // ======================================================
 // ROTA PÚBLICA DE COMPARTILHAMENTO
@@ -22,6 +26,17 @@ const router = Router();
 router.get(
     "/shared/:sharedToken",
     getSharedTicket
+);
+
+// ======================================================
+// INGRESSOS DO CLIENTE
+// ======================================================
+
+router.get(
+    "/mine",
+    authenticate,
+    authorize("CLIENT"),
+    listMyTickets
 );
 
 // ======================================================

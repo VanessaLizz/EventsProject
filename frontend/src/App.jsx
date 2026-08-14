@@ -9,6 +9,7 @@ import ProtectedRoute from "./routes/ProtectedRoute.jsx";
 import HomePage from "./pages/HomePage.jsx";
 import EventsPage from "./pages/EventsPage.jsx";
 import EventDetailsPage from "./pages/EventDetailsPage.jsx";
+import SharedTicketPage from "./pages/SharedTicketPage.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
 import ClientPage from "./pages/ClientPage.jsx";
 import OrganizerPage from "./pages/OrganizerPage.jsx";
@@ -43,6 +44,13 @@ export default function App() {
           path="/eventos/:eventId"
           element={
             <EventDetailsPage />
+          }
+        />
+
+        <Route
+          path="/ingresso/:sharedToken"
+          element={
+            <SharedTicketPage />
           }
         />
 

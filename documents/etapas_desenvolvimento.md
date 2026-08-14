@@ -8787,3 +8787,264 @@ recusa
 atualização de disponibilidade
 
 Com isso, a Etapa 7 — Seleção de Ingressos & Checkout Simulado encontra-se concluída e o projeto está preparado para seguir para a Etapa 8 — Meus Ingressos & Visualização de QR Code.
+
+---
+
+# [Etapa 8] Front-End: Meus Ingressos & Visualização de QR Code
+
+**Status:** Concluído
+
+## Objetivo da Etapa
+
+Implementar a área de ingressos do perfil `CLIENT`, permitindo que o Cliente visualize os ingressos adquiridos, consulte os dados individuais de cada Ticket, acesse seu QR Code privado e compartilhe uma visualização pública segura do ingresso.
+
+A etapa integrou ao Front-End funcionalidades que já haviam sido preparadas no Back-End durante a Etapa 4, principalmente a geração de QR Code assinado, a proteção do ingresso por proprietário e o compartilhamento através de `sharedToken`.
+
+## O que foi feito
+
+- Criação do endpoint `GET /tickets/mine` para listar somente os ingressos pertencentes ao Cliente autenticado.
+- Proteção da rota de listagem utilizando `authenticate` e `authorize("CLIENT")`.
+- Manutenção da validação de propriedade do Ticket através da relação entre `Ticket`, `Order` e `clientId`.
+- Retorno, na listagem, das informações necessárias para apresentação dos ingressos:
+  - ID;
+  - status;
+  - `sharedToken`;
+  - valor individual;
+  - evento;
+  - imagem;
+  - data;
+  - local;
+  - setor;
+  - modalidade;
+  - categoria de preço;
+  - assento, quando aplicável.
+- Decisão de não retornar todos os QR Codes juntamente com a listagem dos ingressos.
+- Manutenção da geração do QR Code somente quando o Cliente abre um Ticket específico.
+- Criação de `frontend/src/services/ticketService.js` para centralizar as requisições relacionadas aos ingressos.
+- Integração do Front-End com:
+  - `GET /tickets/mine`;
+  - `GET /tickets/:ticketId/qr`;
+  - `GET /tickets/shared/:sharedToken`.
+- Atualização da página `ClientPage.jsx` para substituir o conteúdo provisório da Área do Cliente por uma listagem funcional de ingressos.
+- Exibição da quantidade total de ingressos pertencentes ao usuário autenticado.
+- Criação de cards individuais para os Tickets adquiridos.
+- Exibição nos cards de:
+  - imagem do evento;
+  - título;
+  - categoria do evento;
+  - data;
+  - local;
+  - setor;
+  - modalidade;
+  - categoria do ingresso;
+  - assento;
+  - valor pago;
+  - status.
+- Tratamento dos estados `VALID`, `USED` e `CANCELLED`.
+- Suporte tanto para ingressos `SEAT` quanto para ingressos `QUANTITY`.
+- Exibição do assento apenas quando o Ticket possuir um lugar associado.
+- Implementação do botão `Ver ingresso / QR Code`.
+- Carregamento individual do QR através de `GET /tickets/:ticketId/qr`.
+- Manutenção da validação de propriedade antes da geração do QR.
+- Renderização do QR Code retornado pelo Back-End em formato `data:image/png;base64`.
+- Criação de modal para visualização do ingresso individual.
+- Exibição no modal de:
+  - evento;
+  - data;
+  - local;
+  - setor;
+  - modalidade;
+  - categoria;
+  - assento;
+  - status;
+  - QR Code;
+  - identificador do Ticket.
+- Desabilitação da visualização normal do QR para Ticket cancelado.
+- Implementação da opção `Compartilhar`.
+- Utilização do `sharedToken` individual de cada Ticket para gerar o link público.
+- Criação da rota pública `/ingresso/:sharedToken`.
+- Criação de `SharedTicketPage.jsx`.
+- Integração da página pública com `GET /tickets/shared/:sharedToken`.
+- Possibilidade de abrir o ingresso compartilhado sem autenticação.
+- Exibição pública das informações permitidas do ingresso e do evento.
+- Preservação da regra de segurança que impede a exposição pública do QR Code de entrada.
+- Manutenção da separação entre:
+  - QR privado, utilizado como credencial de entrada;
+  - `sharedToken`, utilizado somente para visualização pública.
+- Criação de `ClientTickets.css` para os cards, modal, QR Code, estados e responsividade da Área do Cliente.
+- Criação de `SharedTicketPage.css` para a visualização pública do ingresso.
+- Atualização de `App.jsx` para registrar a nova rota pública de compartilhamento.
+- Preservação da rota `/cliente` como área protegida exclusiva do perfil `CLIENT`.
+
+## Segurança aplicada
+
+A Etapa 8 manteve as regras de segurança estabelecidas anteriormente para os ingressos.
+
+O QR privado continua disponível somente através de:
+
+`GET /tickets/:ticketId/qr`
+
+e exige autenticação como `CLIENT`.
+
+Além disso, o Back-End verifica se o Ticket pertence ao usuário autenticado antes de retornar o QR.
+
+O link público utiliza uma credencial diferente, o `sharedToken`, e não permite acesso ao QR Code utilizado pela Portaria.
+
+A resposta pública não expõe:
+
+- `qrCode`;
+- `qrCodeHash`;
+- token assinado do QR;
+- `orderId`;
+- `clientId`;
+- e-mail do comprador;
+- dados pessoais do comprador.
+
+Dessa forma, compartilhar um ingresso não equivale a compartilhar sua credencial de entrada.
+
+## Arquivos principais envolvidos
+
+### Back-End
+
+- `backend/src/controllers/ticketController.js`
+- `backend/src/routes/ticketRoutes.js`
+
+### Front-End
+
+- `frontend/src/App.jsx`
+- `frontend/src/pages/ClientPage.jsx`
+- `frontend/src/pages/ClientTickets.css`
+- `frontend/src/pages/SharedTicketPage.jsx`
+- `frontend/src/pages/SharedTicketPage.css`
+- `frontend/src/services/ticketService.js`
+
+## Problemas encontrados durante a implementação
+
+Durante a implementação ocorreu uma substituição incorreta de arquivo no Front-End.
+
+O conteúdo destinado ao `App.jsx` foi colocado em `ClientPage.jsx`, fazendo o Vite interpretar imports como:
+
+- `./layouts/PublicLayout.jsx`;
+- `./routes/ProtectedRoute.jsx`;
+- `./pages/...`;
+
+a partir da pasta `src/pages`.
+
+O Vite retornou erro de resolução de import indicando que `./layouts/PublicLayout.jsx` não poderia ser localizado a partir de `ClientPage.jsx`.
+
+O problema não estava nos caminhos originais do projeto, mas no conteúdo ter sido colocado no arquivo incorreto.
+
+A correção consistiu em restaurar:
+
+- o roteamento em `frontend/src/App.jsx`;
+- a Área do Cliente em `frontend/src/pages/ClientPage.jsx`.
+
+Após a correção, o Front-End voltou a carregar normalmente.
+
+## Testes realizados
+
+Foram realizados testes manuais com usuário do perfil `CLIENT`.
+
+### Listagem de ingressos
+
+- [x] Login como Cliente realizado.
+- [x] Área `/cliente` acessada.
+- [x] Endpoint `GET /tickets/mine` integrado.
+- [x] Ingressos pertencentes ao Cliente carregados.
+- [x] Todos os ingressos adquiridos foram apresentados.
+- [x] Informações do evento foram exibidas.
+- [x] Setor e modalidade foram exibidos.
+- [x] Categoria de preço foi exibida.
+- [x] Assento foi apresentado quando aplicável.
+- [x] Valor individual foi apresentado.
+- [x] Status do Ticket foi apresentado.
+
+### QR Code privado
+
+- [x] Ação `Ver ingresso / QR Code` funcionando.
+- [x] Ticket individual carregado.
+- [x] Modal aberto corretamente.
+- [x] Dados do ingresso apresentados.
+- [x] QR Code privado retornado pelo Back-End.
+- [x] QR Code renderizado corretamente na interface.
+
+### Compartilhamento público
+
+- [x] Ação `Compartilhar` funcionando.
+- [x] Link com `sharedToken` gerado.
+- [x] Rota `/ingresso/:sharedToken` funcionando.
+- [x] Link aberto sem autenticação.
+- [x] Página pública carregada corretamente.
+- [x] Dados públicos do ingresso exibidos.
+- [x] QR Code privado não exibido na página compartilhada.
+
+## Critério de aceite da Etapa 8
+
+O critério previsto para a Etapa 8 era disponibilizar o painel `Meus Ingressos`, renderizar corretamente o QR Code do proprietário e permitir a visualização pública do ingresso através de um link compartilhável sem exigir login.
+
+Os testes confirmaram que:
+
+- o Cliente consegue visualizar seus Tickets adquiridos;
+- cada Ticket pode ser aberto individualmente;
+- o QR Code privado é renderizado corretamente;
+- o QR permanece protegido pelo usuário proprietário;
+- o ingresso pode ser compartilhado através de `sharedToken`;
+- a página compartilhada pode ser aberta sem autenticação;
+- a página pública não expõe o QR Code de entrada.
+
+Portanto, o critério principal da Etapa 8 foi atendido.
+
+## Uso de IA nesta Etapa
+
+### Geração e Refatoração de Código
+
+A IA foi utilizada como apoio na implementação e revisão de:
+
+- endpoint de listagem dos Tickets do Cliente;
+- consultas Prisma;
+- rotas;
+- serviços do Front-End;
+- Área do Cliente;
+- cards dos ingressos;
+- modal de QR Code;
+- página pública de compartilhamento;
+- CSS;
+- integração entre Front-End e Back-End.
+
+### Resolução de Problemas
+
+A IA auxiliou no diagnóstico de:
+
+- necessidade de uma rota para listar os Tickets do Cliente;
+- organização entre listagem e carregamento individual do QR;
+- erro de importação provocado por conteúdo colocado no arquivo incorreto;
+- integração do `sharedToken` com a rota pública;
+- separação entre QR privado e visualização compartilhada.
+
+### Decisões Humanas / Manuais
+
+Foram realizadas manualmente:
+
+- validação visual da Área do Cliente;
+- confirmação de que todos os ingressos adquiridos estavam sendo apresentados;
+- teste de abertura do QR Code;
+- confirmação de que o QR estava sendo renderizado corretamente;
+- teste do compartilhamento;
+- abertura do link público sem autenticação;
+- confirmação de que o QR privado não aparecia na visualização compartilhada;
+- decisão de manter o QR privado separado da listagem geral dos ingressos;
+- validação final do fluxo antes do encerramento da etapa.
+
+A IA foi utilizada como ferramenta de apoio ao desenvolvimento, enquanto os testes funcionais, decisões de produto e validação final permaneceram sob avaliação humana.
+
+---
+
+# Resultado da Etapa 8
+
+Ao final da Etapa 8, o Boraí passou a possuir uma Área do Cliente funcional para gerenciamento e visualização dos ingressos adquiridos.
+
+O perfil `CLIENT` agora consegue visualizar seus Tickets, consultar suas informações, abrir individualmente o QR Code privado e gerar um link público de compartilhamento.
+
+A página compartilhada pode ser acessada sem login e mantém protegida a credencial utilizada na entrada do evento.
+
+Com isso, a Etapa 8 — Meus Ingressos & Visualização de QR Code encontra-se concluída e o projeto está preparado para continuar com a Etapa 9 — Portal da Portaria.

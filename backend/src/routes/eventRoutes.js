@@ -13,6 +13,15 @@ import {
 } from "../controllers/eventController.js";
 
 import {
+    getExternalCatalogTypes,
+    listExternalCatalog,
+    searchTmdbEvents,
+    getTmdbEventById,
+    searchTicketmasterExternalEvents,
+    getTicketmasterExternalEventById,
+} from "../controllers/externalEventController.js";
+
+import {
     getEventConfiguration,
     createSectorTemplate,
     createModalityTemplate,
@@ -71,6 +80,72 @@ router.post(
     authorize("ORGANIZER"),
     createModalityTemplate
 );
+
+// ======================================================
+// CATÁLOGO EXTERNO
+// ======================================================
+//
+// O catálogo apenas CONSULTA dados externos.
+//
+// Nenhum evento é criado no banco nesta etapa.
+// O organizador seleciona uma opção e depois
+// revisa os dados no formulário normal de criação.
+//
+// ======================================================
+
+router.get(
+    "/external/catalog/types",
+    authenticate,
+    authorize("ORGANIZER"),
+    getExternalCatalogTypes
+);
+
+router.get(
+    "/external/catalog",
+    authenticate,
+    authorize("ORGANIZER"),
+    listExternalCatalog
+);
+
+// ======================================================
+// APIS EXTERNAS — TMDB
+// ======================================================
+
+router.get(
+    "/external/tmdb/search",
+    authenticate,
+    authorize("ORGANIZER"),
+    searchTmdbEvents
+);
+
+router.get(
+    "/external/tmdb/:externalId",
+    authenticate,
+    authorize("ORGANIZER"),
+    getTmdbEventById
+);
+
+// ======================================================
+// APIS EXTERNAS — TICKETMASTER
+// ======================================================
+
+router.get(
+    "/external/ticketmaster/search",
+    authenticate,
+    authorize("ORGANIZER"),
+    searchTicketmasterExternalEvents
+);
+
+router.get(
+    "/external/ticketmaster/:externalId",
+    authenticate,
+    authorize("ORGANIZER"),
+    getTicketmasterExternalEventById
+);
+
+// ======================================================
+// EVENTOS DO ORGANIZADOR
+// ======================================================
 
 router.get(
     "/organizer/mine",

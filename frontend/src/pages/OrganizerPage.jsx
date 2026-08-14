@@ -19,9 +19,30 @@ import {
     getOrganizerEvents,
 } from "../services/eventService.js";
 
+// ======================================================
+// FORMATAÇÃO
+// ======================================================
+
 function formatDate(
     dateTime
 ) {
+    if (!dateTime) {
+        return "Data ainda não definida";
+    }
+
+    const date =
+        new Date(
+            dateTime
+        );
+
+    if (
+        Number.isNaN(
+            date.getTime()
+        )
+    ) {
+        return "Data ainda não definida";
+    }
+
     return new Intl.DateTimeFormat(
         "pt-BR",
         {
@@ -32,9 +53,7 @@ function formatDate(
                 "short",
         }
     ).format(
-        new Date(
-            dateTime
-        )
+        date
     );
 }
 
@@ -42,7 +61,10 @@ function formatCurrency(
     valueInCents
 ) {
     return (
-        valueInCents / 100
+        Number(
+            valueInCents ||
+                0
+        ) / 100
     ).toLocaleString(
         "pt-BR",
         {
@@ -54,6 +76,10 @@ function formatCurrency(
         }
     );
 }
+
+// ======================================================
+// STATUS
+// ======================================================
 
 function getStatusLabel(
     status
@@ -75,8 +101,13 @@ function getStatusLabel(
     );
 }
 
+// ======================================================
+// CARD DO EVENTO
+// ======================================================
+
 function EventCard({
     event,
+    isEnded = false,
 }) {
     const metrics =
         event.metrics ||
@@ -91,25 +122,76 @@ function EventCard({
                 0,
         };
 
+    const categoryName =
+        event
+            .categoryTemplate
+            ?.name ||
+        "Categoria não definida";
+
+    const locationText =
+        [
+            event.city,
+            event.state,
+        ]
+            .filter(
+                Boolean
+            )
+            .join(
+                " - "
+            );
+
+    const statusClass =
+        String(
+            event.status ||
+                "DRAFT"
+        ).toLowerCase();
+
     return (
         <article className="organizer-event-card">
             <div className="organizer-event-card-top">
                 <span
-                    className={`organizer-event-status organizer-event-status-${event.status.toLowerCase()}`}
+                    className={`organizer-event-status organizer-event-status-${statusClass}`}
                 >
-                    {getStatusLabel(
-                        event.status
-                    )}
+                    {isEnded
+                        ? "Encerrado"
+                        : getStatusLabel(
+                              event.status
+                          )}
                 </span>
 
                 <span className="organizer-event-category">
                     {
-                        event
-                            .categoryTemplate
-                            ?.name
+                        categoryName
                     }
                 </span>
             </div>
+
+            {event.imageUrl && (
+                <img
+                    src={
+                        event.imageUrl
+                    }
+                    alt={
+                        event.title
+                    }
+                    style={{
+                        width:
+                            "100%",
+
+                        height:
+                            "190px",
+
+                        objectFit:
+                            "cover",
+
+                        borderRadius:
+                            "12px",
+
+                        marginBottom:
+                            "16px",
+                    }}
+                />
+            )}
 
             <div className="organizer-event-content">
                 <h3>
@@ -125,20 +207,42 @@ function EventCard({
                 </p>
 
                 <p className="organizer-event-location">
-                    {
-                        event.venueName
-                    }
+                    {event.venueName ||
+                        "Local ainda não definido"}
 
-                    <br />
+                    {locationText && (
+                        <>
+                            <br />
 
-                    {
-                        event.city
-                    }{" "}
-                    -{" "}
-                    {
-                        event.state
-                    }
+                            {
+                                locationText
+                            }
+                        </>
+                    )}
                 </p>
+
+                {event.source &&
+                    event.source !==
+                        "LOCAL" && (
+                        <p
+                            style={{
+                                fontSize:
+                                    "0.85rem",
+
+                                opacity:
+                                    0.75,
+                            }}
+                        >
+                            Origem:{" "}
+                            {event.source ===
+                            "TMDB"
+                                ? "TMDb"
+                                : event.source ===
+                                    "TICKETMASTER"
+                                  ? "Ticketmaster"
+                                  : event.source}
+                        </p>
+                    )}
             </div>
 
             <div className="organizer-event-meta">
@@ -148,9 +252,8 @@ function EventCard({
                     </span>
 
                     <strong>
-                        {
-                            event.capacity
-                        }
+                        {event.capacity ??
+                            "—"}
                     </strong>
                 </div>
 
@@ -160,9 +263,11 @@ function EventCard({
                     </span>
 
                     <strong>
-                        {getStatusLabel(
-                            event.status
-                        )}
+                        {isEnded
+                            ? "Encerrado"
+                            : getStatusLabel(
+                                  event.status
+                              )}
                     </strong>
                 </div>
             </div>
@@ -250,6 +355,10 @@ function EventCard({
     );
 }
 
+// ======================================================
+// PÁGINA
+// ======================================================
+
 export default function OrganizerPage() {
     const {
         user,
@@ -265,7 +374,7 @@ export default function OrganizerPage() {
         activeTab,
         setActiveTab,
     ] = useState(
-        "upcoming"
+        "drafts"
     );
 
     const [
@@ -292,12 +401,18 @@ export default function OrganizerPage() {
     const [
         isLoading,
         setIsLoading,
-    ] = useState(true);
+    ] = useState(
+        true
+    );
 
     const [
         error,
         setError,
     ] = useState("");
+
+    // ==================================================
+    // CARREGAMENTO
+    // ==================================================
 
     const loadEvents =
         useCallback(
@@ -309,7 +424,7 @@ export default function OrganizerPage() {
 
                 setEvents(
                     response.events ||
-                    []
+                        []
                 );
             },
             [
@@ -324,15 +439,21 @@ export default function OrganizerPage() {
         async function load() {
             try {
                 await loadEvents();
-            } catch (error) {
-                if (active) {
+            } catch (
+                error
+            ) {
+                if (
+                    active
+                ) {
                     setError(
                         error.message ||
-                        "Não foi possível carregar seus eventos."
+                            "Não foi possível carregar seus eventos."
                     );
                 }
             } finally {
-                if (active) {
+                if (
+                    active
+                ) {
                     setIsLoading(
                         false
                     );
@@ -350,25 +471,28 @@ export default function OrganizerPage() {
         loadEvents,
     ]);
 
+    // ==================================================
+    // SEPARAÇÃO DOS EVENTOS
+    // ==================================================
+
     const {
-        upcomingEvents,
-        pastEvents,
+        draftEvents,
+        publishedEvents,
+        endedEvents,
     } =
         useMemo(
             () => {
                 const now =
                     new Date();
 
-                const upcoming =
+                const drafts =
                     events
                         .filter(
                             (
                                 event
                             ) =>
-                                new Date(
-                                    event.dateTime
-                                ) >=
-                                now
+                                event.status ===
+                                "DRAFT"
                         )
                         .sort(
                             (
@@ -376,23 +500,90 @@ export default function OrganizerPage() {
                                 b
                             ) =>
                                 new Date(
-                                    a.dateTime
+                                    b.createdAt ||
+                                        0
                                 ) -
                                 new Date(
-                                    b.dateTime
+                                    a.createdAt ||
+                                        0
                                 )
                         );
 
-                const past =
+                const published =
                     events
                         .filter(
                             (
                                 event
+                            ) => {
+                                if (
+                                    event.status !==
+                                    "PUBLISHED"
+                                ) {
+                                    return false;
+                                }
+
+                                if (
+                                    !event.dateTime
+                                ) {
+                                    return true;
+                                }
+
+                                const date =
+                                    new Date(
+                                        event.dateTime
+                                    );
+
+                                return (
+                                    !Number.isNaN(
+                                        date.getTime()
+                                    ) &&
+                                    date >=
+                                        now
+                                );
+                            }
+                        )
+                        .sort(
+                            (
+                                a,
+                                b
                             ) =>
                                 new Date(
-                                    event.dateTime
-                                ) <
-                                now
+                                    a.dateTime ||
+                                        0
+                                ) -
+                                new Date(
+                                    b.dateTime ||
+                                        0
+                                )
+                        );
+
+                const ended =
+                    events
+                        .filter(
+                            (
+                                event
+                            ) => {
+                                if (
+                                    event.status !==
+                                        "PUBLISHED" ||
+                                    !event.dateTime
+                                ) {
+                                    return false;
+                                }
+
+                                const date =
+                                    new Date(
+                                        event.dateTime
+                                    );
+
+                                return (
+                                    !Number.isNaN(
+                                        date.getTime()
+                                    ) &&
+                                    date <
+                                        now
+                                );
+                            }
                         )
                         .sort(
                             (
@@ -408,17 +599,24 @@ export default function OrganizerPage() {
                         );
 
                 return {
-                    upcomingEvents:
-                        upcoming,
+                    draftEvents:
+                        drafts,
 
-                    pastEvents:
-                        past,
+                    publishedEvents:
+                        published,
+
+                    endedEvents:
+                        ended,
                 };
             },
             [
                 events,
             ]
         );
+
+    // ==================================================
+    // CATEGORIAS DA DASHBOARD
+    // ==================================================
 
     const overviewCategories =
         useMemo(
@@ -427,22 +625,29 @@ export default function OrganizerPage() {
                     new Set(
                         events
                             .filter(
-                                (event) =>
+                                (
+                                    event
+                                ) =>
                                     event.status ===
-                                    "PUBLISHED"
-                            )
-                            .map(
-                                (event) =>
+                                        "PUBLISHED" &&
                                     event
                                         .categoryTemplate
                                         ?.name
                             )
-                            .filter(
-                                Boolean
+                            .map(
+                                (
+                                    event
+                                ) =>
+                                    event
+                                        .categoryTemplate
+                                        .name
                             )
                     )
                 ).sort(
-                    (a, b) =>
+                    (
+                        a,
+                        b
+                    ) =>
                         a.localeCompare(
                             b,
                             "pt-BR"
@@ -453,6 +658,10 @@ export default function OrganizerPage() {
             ]
         );
 
+    // ==================================================
+    // ANOS DA DASHBOARD
+    // ==================================================
+
     const overviewYears =
         useMemo(
             () =>
@@ -460,25 +669,49 @@ export default function OrganizerPage() {
                     new Set(
                         events
                             .filter(
-                                (event) =>
+                                (
+                                    event
+                                ) =>
                                     event.status ===
-                                    "PUBLISHED"
+                                        "PUBLISHED" &&
+                                    event.dateTime
                             )
                             .map(
-                                (event) =>
-                                    new Date(
-                                        event.dateTime
-                                    ).getFullYear()
+                                (
+                                    event
+                                ) => {
+                                    const date =
+                                        new Date(
+                                            event.dateTime
+                                        );
+
+                                    return Number.isNaN(
+                                        date.getTime()
+                                    )
+                                        ? null
+                                        : date.getFullYear();
+                                }
+                            )
+                            .filter(
+                                Boolean
                             )
                     )
                 ).sort(
-                    (a, b) =>
-                        b - a
+                    (
+                        a,
+                        b
+                    ) =>
+                        b -
+                        a
                 ),
             [
                 events,
             ]
         );
+
+    // ==================================================
+    // FILTRO DA DASHBOARD
+    // ==================================================
 
     const overviewEvents =
         useMemo(
@@ -487,18 +720,15 @@ export default function OrganizerPage() {
                     new Date();
 
                 return events.filter(
-                    (event) => {
+                    (
+                        event
+                    ) => {
                         if (
                             event.status !==
                             "PUBLISHED"
                         ) {
                             return false;
                         }
-
-                        const eventDate =
-                            new Date(
-                                event.dateTime
-                            );
 
                         const matchesCategory =
                             overviewCategory ===
@@ -508,30 +738,77 @@ export default function OrganizerPage() {
                                 ?.name ===
                                 overviewCategory;
 
-                        const matchesYear =
-                            overviewYear ===
-                                "ALL" ||
-                            eventDate
-                                .getFullYear() ===
-                                Number(
-                                    overviewYear
-                                );
+                        let matchesYear =
+                            true;
 
-                        const matchesPeriod =
-                            overviewPeriod ===
-                                "ALL" ||
-                            (
-                                overviewPeriod ===
-                                    "UPCOMING" &&
-                                eventDate >=
-                                    now
-                            ) ||
-                            (
-                                overviewPeriod ===
-                                    "PAST" &&
-                                eventDate <
-                                    now
-                            );
+                        let matchesPeriod =
+                            true;
+
+                        if (
+                            overviewYear !==
+                            "ALL"
+                        ) {
+                            if (
+                                !event.dateTime
+                            ) {
+                                matchesYear =
+                                    false;
+                            } else {
+                                const eventDate =
+                                    new Date(
+                                        event.dateTime
+                                    );
+
+                                matchesYear =
+                                    !Number.isNaN(
+                                        eventDate.getTime()
+                                    ) &&
+                                    eventDate.getFullYear() ===
+                                        Number(
+                                            overviewYear
+                                        );
+                            }
+                        }
+
+                        if (
+                            overviewPeriod !==
+                            "ALL"
+                        ) {
+                            if (
+                                !event.dateTime
+                            ) {
+                                matchesPeriod =
+                                    false;
+                            } else {
+                                const eventDate =
+                                    new Date(
+                                        event.dateTime
+                                    );
+
+                                if (
+                                    Number.isNaN(
+                                        eventDate.getTime()
+                                    )
+                                ) {
+                                    matchesPeriod =
+                                        false;
+                                } else if (
+                                    overviewPeriod ===
+                                    "UPCOMING"
+                                ) {
+                                    matchesPeriod =
+                                        eventDate >=
+                                        now;
+                                } else if (
+                                    overviewPeriod ===
+                                    "PAST"
+                                ) {
+                                    matchesPeriod =
+                                        eventDate <
+                                        now;
+                                }
+                            }
+                        }
 
                         return (
                             matchesCategory &&
@@ -549,12 +826,13 @@ export default function OrganizerPage() {
             ]
         );
 
+    // ==================================================
+    // MÉTRICAS GERAIS
+    // ==================================================
+
     const generalMetrics =
         useMemo(
             () => {
-                const publishedEvents =
-                    overviewEvents;
-
                 let soldTickets =
                     0;
 
@@ -569,7 +847,7 @@ export default function OrganizerPage() {
 
                 for (
                     const event
-                    of publishedEvents
+                    of overviewEvents
                 ) {
                     const eventMetrics =
                         event.metrics ||
@@ -678,7 +956,7 @@ export default function OrganizerPage() {
 
                 return {
                     publishedEvents:
-                        publishedEvents.length,
+                        overviewEvents.length,
 
                     soldTickets,
 
@@ -708,8 +986,7 @@ export default function OrganizerPage() {
                             (
                                 category
                             ) =>
-                                category
-                                    .soldTickets
+                                category.soldTickets
                         ),
                     1
                 ),
@@ -719,11 +996,36 @@ export default function OrganizerPage() {
             ]
         );
 
+    // ==================================================
+    // ABA VISÍVEL
+    // ==================================================
+
     const visibleEvents =
-        activeTab ===
-        "upcoming"
-            ? upcomingEvents
-            : pastEvents;
+        useMemo(
+            () => {
+                if (
+                    activeTab ===
+                    "drafts"
+                ) {
+                    return draftEvents;
+                }
+
+                if (
+                    activeTab ===
+                    "published"
+                ) {
+                    return publishedEvents;
+                }
+
+                return endedEvents;
+            },
+            [
+                activeTab,
+                draftEvents,
+                publishedEvents,
+                endedEvents,
+            ]
+        );
 
     const hasActiveOverviewFilters =
         overviewCategory !==
@@ -747,6 +1049,46 @@ export default function OrganizerPage() {
         );
     }
 
+    function getEmptyTabTitle() {
+        if (
+            activeTab ===
+            "drafts"
+        ) {
+            return "Nenhum rascunho";
+        }
+
+        if (
+            activeTab ===
+            "published"
+        ) {
+            return "Nenhum evento publicado";
+        }
+
+        return "Nenhum evento encerrado";
+    }
+
+    function getEmptyTabDescription() {
+        if (
+            activeTab ===
+            "drafts"
+        ) {
+            return "Eventos ainda em criação ou configuração aparecerão nesta aba.";
+        }
+
+        if (
+            activeTab ===
+            "published"
+        ) {
+            return "Os eventos publicados que ainda vão acontecer aparecerão nesta aba.";
+        }
+
+        return "Os eventos publicados cuja data já passou aparecerão nesta aba.";
+    }
+
+    // ==================================================
+    // RENDER
+    // ==================================================
+
     return (
         <main className="account-page organizer-page">
             <header className="account-heading organizer-heading">
@@ -769,6 +1111,10 @@ export default function OrganizerPage() {
                 <AccountLogout />
             </header>
 
+            {/* ==========================================
+                AÇÕES
+               ========================================== */}
+
             <section className="organizer-toolbar">
                 <div>
                     <p className="account-eyebrow">
@@ -780,18 +1126,38 @@ export default function OrganizerPage() {
                     </h2>
 
                     <p>
-                        Crie novos eventos ou
-                        acompanhe os eventos
-                        existentes.
+                        Crie um evento do zero
+                        ou escolha opções dos
+                        catálogos externos.
                     </p>
                 </div>
 
-                <Link
-                    to="/organizador/eventos/novo"
-                    className="organizer-create-button"
+                <div
+                    style={{
+                        display:
+                            "flex",
+
+                        gap:
+                            "12px",
+
+                        flexWrap:
+                            "wrap",
+                    }}
                 >
-                    + Criar evento
-                </Link>
+                    <Link
+                        to="/organizador/eventos/novo"
+                        className="organizer-create-button"
+                    >
+                        + Criar evento
+                    </Link>
+
+                    <Link
+                        to="/organizador/eventos/importar"
+                        className="organizer-create-button"
+                    >
+                        + Importar eventos
+                    </Link>
+                </div>
             </section>
 
             {error && (
@@ -823,17 +1189,47 @@ export default function OrganizerPage() {
                         </p>
 
                         <h2>
-                            Você ainda não
-                            possui eventos
+                            Você ainda não possui eventos
                         </h2>
 
                         <p>
-                            Crie seu primeiro
-                            evento para
-                            configurar setores,
-                            modalidades, lotes
-                            e ingressos.
+                            Crie um evento manualmente
+                            ou escolha opções disponíveis
+                            no catálogo externo.
                         </p>
+
+                        <div
+                            style={{
+                                display:
+                                    "flex",
+
+                                justifyContent:
+                                    "center",
+
+                                gap:
+                                    "12px",
+
+                                flexWrap:
+                                    "wrap",
+
+                                marginTop:
+                                    "20px",
+                            }}
+                        >
+                            <Link
+                                to="/organizador/eventos/novo"
+                                className="organizer-create-button"
+                            >
+                                + Criar evento
+                            </Link>
+
+                            <Link
+                                to="/organizador/eventos/importar"
+                                className="organizer-create-button"
+                            >
+                                + Importar eventos
+                            </Link>
+                        </div>
                     </section>
                 )}
 
@@ -842,6 +1238,10 @@ export default function OrganizerPage() {
                 events.length >
                     0 && (
                     <>
+                        {/* ==================================
+                            DASHBOARD
+                           ================================== */}
+
                         <section className="organizer-overview">
                             <div className="organizer-overview-heading">
                                 <div>
@@ -933,7 +1333,7 @@ export default function OrganizerPage() {
                                         </option>
 
                                         <option value="PAST">
-                                            Realizados
+                                            Encerrados
                                         </option>
                                     </select>
                                 </label>
@@ -999,16 +1399,12 @@ export default function OrganizerPage() {
                             <div className="organizer-overview-filter-summary">
                                 <span>
                                     {
-                                        generalMetrics
-                                            .publishedEvents
-                                    }
-                                    {" "}
-                                    {generalMetrics
-                                        .publishedEvents ===
+                                        generalMetrics.publishedEvents
+                                    }{" "}
+                                    {generalMetrics.publishedEvents ===
                                     1
                                         ? "evento publicado"
-                                        : "eventos publicados"}
-                                    {" "}
+                                        : "eventos publicados"}{" "}
                                     no filtro atual
                                 </span>
                             </div>
@@ -1021,8 +1417,7 @@ export default function OrganizerPage() {
 
                                     <strong>
                                         {formatCurrency(
-                                            generalMetrics
-                                                .revenueInCents
+                                            generalMetrics.revenueInCents
                                         )}
                                     </strong>
 
@@ -1038,8 +1433,7 @@ export default function OrganizerPage() {
 
                                     <strong>
                                         {
-                                            generalMetrics
-                                                .soldTickets
+                                            generalMetrics.soldTickets
                                         }
                                     </strong>
 
@@ -1055,8 +1449,7 @@ export default function OrganizerPage() {
 
                                     <strong>
                                         {formatCurrency(
-                                            generalMetrics
-                                                .averageTicketInCents
+                                            generalMetrics.averageTicketInCents
                                         )}
                                     </strong>
 
@@ -1072,8 +1465,7 @@ export default function OrganizerPage() {
 
                                     <strong>
                                         {
-                                            generalMetrics
-                                                .occupancyPercentage
+                                            generalMetrics.occupancyPercentage
                                         }
                                         %
                                     </strong>
@@ -1090,8 +1482,7 @@ export default function OrganizerPage() {
 
                                     <strong>
                                         {
-                                            generalMetrics
-                                                .publishedEvents
+                                            generalMetrics.publishedEvents
                                         }
                                     </strong>
 
@@ -1100,6 +1491,10 @@ export default function OrganizerPage() {
                                     </small>
                                 </article>
                             </div>
+
+                            {/* ==============================
+                                VENDAS POR CATEGORIA
+                               ============================== */}
 
                             <article className="organizer-category-dashboard">
                                 <div className="organizer-category-dashboard-heading">
@@ -1141,8 +1536,7 @@ export default function OrganizerPage() {
                                                         100;
 
                                                     const salesPercentage =
-                                                        generalMetrics
-                                                            .soldTickets >
+                                                        generalMetrics.soldTickets >
                                                         0
                                                             ? Math.round(
                                                                   (
@@ -1171,8 +1565,7 @@ export default function OrganizerPage() {
                                                                     <span>
                                                                         {
                                                                             category.events
-                                                                        }
-                                                                        {" "}
+                                                                        }{" "}
                                                                         {category.events ===
                                                                         1
                                                                             ? "evento"
@@ -1213,8 +1606,7 @@ export default function OrganizerPage() {
 
                                                                 <strong>
                                                                     {formatCurrency(
-                                                                        category
-                                                                            .revenueInCents
+                                                                        category.revenueInCents
                                                                     )}
                                                                 </strong>
                                                             </div>
@@ -1227,6 +1619,10 @@ export default function OrganizerPage() {
                             </article>
                         </section>
 
+                        {/* ==================================
+                            ABAS
+                           ================================== */}
+
                         <section
                             className="organizer-event-tabs"
                             aria-label="Filtro de eventos do organizador"
@@ -1235,21 +1631,21 @@ export default function OrganizerPage() {
                                 type="button"
                                 className={
                                     activeTab ===
-                                    "upcoming"
+                                    "drafts"
                                         ? "organizer-event-tab organizer-event-tab-active"
                                         : "organizer-event-tab"
                                 }
                                 onClick={() =>
                                     setActiveTab(
-                                        "upcoming"
+                                        "drafts"
                                     )
                                 }
                             >
-                                Próximos
+                                Rascunhos
 
                                 <span>
                                     {
-                                        upcomingEvents.length
+                                        draftEvents.length
                                     }
                                 </span>
                             </button>
@@ -1258,41 +1654,62 @@ export default function OrganizerPage() {
                                 type="button"
                                 className={
                                     activeTab ===
-                                    "past"
+                                    "published"
                                         ? "organizer-event-tab organizer-event-tab-active"
                                         : "organizer-event-tab"
                                 }
                                 onClick={() =>
                                     setActiveTab(
-                                        "past"
+                                        "published"
                                     )
                                 }
                             >
-                                Realizados
+                                Publicados
 
                                 <span>
                                     {
-                                        pastEvents.length
+                                        publishedEvents.length
+                                    }
+                                </span>
+                            </button>
+
+                            <button
+                                type="button"
+                                className={
+                                    activeTab ===
+                                    "ended"
+                                        ? "organizer-event-tab organizer-event-tab-active"
+                                        : "organizer-event-tab"
+                                }
+                                onClick={() =>
+                                    setActiveTab(
+                                        "ended"
+                                    )
+                                }
+                            >
+                                Encerrados
+
+                                <span>
+                                    {
+                                        endedEvents.length
                                     }
                                 </span>
                             </button>
                         </section>
 
+                        {/* ==================================
+                            LISTAGEM
+                           ================================== */}
+
                         {visibleEvents.length ===
                         0 ? (
                             <section className="organizer-empty organizer-tab-empty">
                                 <h2>
-                                    {activeTab ===
-                                    "upcoming"
-                                        ? "Nenhum evento futuro"
-                                        : "Nenhum evento realizado"}
+                                    {getEmptyTabTitle()}
                                 </h2>
 
                                 <p>
-                                    {activeTab ===
-                                    "upcoming"
-                                        ? "Seus próximos eventos aparecerão nesta aba."
-                                        : "Os eventos já realizados aparecerão nesta aba."}
+                                    {getEmptyTabDescription()}
                                 </p>
                             </section>
                         ) : (
@@ -1307,6 +1724,10 @@ export default function OrganizerPage() {
                                             }
                                             event={
                                                 event
+                                            }
+                                            isEnded={
+                                                activeTab ===
+                                                "ended"
                                             }
                                         />
                                     )

@@ -1,0 +1,385 @@
+.metrics-page {
+  padding-top: 44px;
+  padding-bottom: 72px;
+}
+
+.metrics-header {
+  margin-bottom: 30px;
+
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+
+  gap: 28px;
+}
+
+.metrics-header h1 {
+  margin:
+    8px 0
+    8px;
+
+  max-width: 780px;
+}
+
+.metrics-event-info {
+  margin: 0;
+
+  color: var(--text-soft);
+
+  font-size: 0.88rem;
+}
+
+.metrics-back-link {
+  display: inline-block;
+
+  margin-bottom: 22px;
+
+  color: var(--purple);
+
+  font-size: 0.82rem;
+  font-weight: 800;
+
+  text-decoration: none;
+}
+
+.metrics-public-button,
+.metrics-back-button {
+  min-height: 44px;
+
+  padding: 10px 18px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 8px;
+
+  background: var(--purple);
+  color: #ffffff;
+
+  font-weight: 800;
+
+  text-decoration: none;
+}
+
+.metrics-kpi-grid {
+  margin-bottom: 22px;
+
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      4,
+      minmax(0, 1fr)
+    );
+
+  gap: 16px;
+}
+
+.metrics-kpi-card {
+  min-width: 0;
+
+  padding: 20px;
+
+  border: 1px solid var(--border);
+  border-radius: 14px;
+
+  background: var(--surface);
+
+  box-shadow: var(--shadow-sm);
+}
+
+.metrics-kpi-card span {
+  display: block;
+
+  margin-bottom: 12px;
+
+  color: var(--text-soft);
+
+  font-size: 0.72rem;
+  font-weight: 800;
+
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.metrics-kpi-card strong {
+  display: block;
+
+  margin-bottom: 6px;
+
+  font-size:
+    clamp(
+      1.45rem,
+      2vw,
+      2rem
+    );
+
+  line-height: 1.1;
+}
+
+.metrics-kpi-card small {
+  color: var(--text-soft);
+
+  font-size: 0.72rem;
+}
+
+.metrics-dashboard-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      2,
+      minmax(0, 1fr)
+    );
+
+  gap: 18px;
+}
+
+.metrics-panel {
+  min-width: 0;
+
+  padding: 22px;
+
+  border: 1px solid var(--border);
+  border-radius: 14px;
+
+  background: var(--surface);
+
+  box-shadow: var(--shadow-sm);
+}
+
+.metrics-occupancy-panel {
+  grid-column:
+    1 / -1;
+}
+
+.metrics-panel-heading {
+  margin-bottom: 22px;
+
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+
+  gap: 18px;
+}
+
+.metrics-panel-heading span {
+  display: block;
+
+  margin-bottom: 4px;
+
+  color: var(--pink);
+
+  font-size: 0.68rem;
+  font-weight: 800;
+
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.metrics-panel-heading h2 {
+  margin: 0;
+
+  font-size: 1.15rem;
+}
+
+.metrics-panel-heading > strong {
+  color: var(--purple);
+
+  font-size: 1.8rem;
+}
+
+.metrics-big-progress {
+  height: 22px;
+
+  overflow: hidden;
+
+  border-radius: 999px;
+
+  background:
+    rgba(201, 123, 165, 0.12);
+}
+
+.metrics-big-progress-fill {
+  height: 100%;
+
+  border-radius: inherit;
+
+  background: var(--purple);
+
+  transition:
+    width 0.3s ease;
+}
+
+.metrics-progress-labels {
+  margin-top: 12px;
+
+  display: flex;
+  justify-content: space-between;
+
+  gap: 16px;
+
+  color: var(--text-soft);
+
+  font-size: 0.75rem;
+}
+
+.metrics-bar-chart {
+  display: grid;
+
+  gap: 18px;
+}
+
+.metrics-bar-row {
+  display: grid;
+
+  gap: 7px;
+}
+
+.metrics-bar-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 16px;
+}
+
+.metrics-bar-label span {
+  color: var(--text);
+
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.metrics-bar-label strong {
+  font-size: 0.82rem;
+}
+
+.metrics-bar-track {
+  height: 14px;
+
+  overflow: hidden;
+
+  border-radius: 999px;
+
+  background:
+    rgba(201, 123, 165, 0.12);
+}
+
+.metrics-bar-fill {
+  min-width: 4px;
+  height: 100%;
+
+  border-radius: inherit;
+
+  background: var(--pink);
+
+  transition:
+    width 0.3s ease;
+}
+
+.metrics-summary-list {
+  display: grid;
+
+  gap: 0;
+}
+
+.metrics-summary-list > div {
+  padding: 13px 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 20px;
+
+  border-bottom:
+    1px solid var(--border);
+}
+
+.metrics-summary-list > div:last-child {
+  border-bottom: 0;
+}
+
+.metrics-summary-list span {
+  color: var(--text-soft);
+
+  font-size: 0.8rem;
+}
+
+.metrics-summary-list strong {
+  text-align: right;
+}
+
+.metrics-empty-chart {
+  min-height: 160px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  color: var(--text-soft);
+
+  font-size: 0.82rem;
+  text-align: center;
+}
+
+.metrics-state {
+  padding: 48px 24px;
+
+  border: 1px solid var(--border);
+  border-radius: 14px;
+
+  background: var(--surface);
+
+  text-align: center;
+}
+
+.metrics-state h1 {
+  margin-top: 0;
+}
+
+.metrics-state-error {
+  border-color:
+    rgba(230, 84, 107, 0.3);
+}
+
+@media (max-width: 900px) {
+  .metrics-kpi-grid {
+    grid-template-columns:
+      repeat(
+        2,
+        minmax(0, 1fr)
+      );
+  }
+
+  .metrics-dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .metrics-occupancy-panel {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 650px) {
+  .metrics-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .metrics-public-button {
+    width: 100%;
+  }
+
+  .metrics-kpi-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .metrics-progress-labels {
+    flex-direction: column;
+
+    gap: 4px;
+  }
+}

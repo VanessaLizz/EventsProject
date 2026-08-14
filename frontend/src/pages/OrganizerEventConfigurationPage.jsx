@@ -16,7 +16,9 @@ import {
 import {
     createEventSector,
     createModalitySeats,
+    createModalityTemplate,
     createSectorModality,
+    createSectorTemplate,
     createTicketBatch,
     createTicketCategory,
     deleteEventSector,
@@ -176,6 +178,16 @@ export default function OrganizerEventConfigurationPage() {
     });
 
     const [
+        newSectorName,
+        setNewSectorName,
+    ] = useState("");
+
+    const [
+        newModalityNames,
+        setNewModalityNames,
+    ] = useState({});
+
+    const [
         modalityForms,
         setModalityForms,
     ] = useState({});
@@ -282,9 +294,12 @@ export default function OrganizerEventConfigurationPage() {
         load();
 
         return () => {
-            mounted = false;
+            mounted =
+                false;
         };
-    }, [loadData]);
+    }, [
+        loadData,
+    ]);
 
     async function refresh(
         message
@@ -307,7 +322,8 @@ export default function OrganizerEventConfigurationPage() {
             ] || {
                 modalityTemplateId:
                     "",
-                capacity: "",
+                capacity:
+                    "",
                 occupancyMode:
                     "QUANTITY",
             }
@@ -352,8 +368,10 @@ export default function OrganizerEventConfigurationPage() {
             batchForms[
                 modalityId
             ] || {
-                name: "",
-                quantity: "",
+                name:
+                    "",
+                quantity:
+                    "",
             }
         );
     }
@@ -422,10 +440,12 @@ export default function OrganizerEventConfigurationPage() {
             seatForms[
                 modalityId
             ] || {
-                rowLabel: "",
+                rowLabel:
+                    "",
                 startNumber:
                     "1",
-                quantity: "",
+                quantity:
+                    "",
             }
         );
     }
@@ -567,6 +587,149 @@ export default function OrganizerEventConfigurationPage() {
         );
     }
 
+    async function handleCreateSectorTemplate(
+        event
+    ) {
+        event.preventDefault();
+
+        const name =
+            newSectorName.trim();
+
+        if (!name) {
+            setError(
+                "Informe o nome do novo setor."
+            );
+
+            return;
+        }
+
+        setIsSaving(true);
+        setError("");
+        setSuccess("");
+
+        try {
+            const response =
+                await createSectorTemplate(
+                    {
+                        name,
+                    },
+                    token
+                );
+
+            const createdTemplate =
+                response.sectorTemplate;
+
+            await loadData();
+
+            setSectorForm(
+                (current) => ({
+                    ...current,
+
+                    sectorTemplateId:
+                        createdTemplate.id,
+                })
+            );
+
+            setNewSectorName("");
+
+            setSuccess(
+                "Novo setor criado e selecionado."
+            );
+        } catch (error) {
+            setError(
+                error.message
+            );
+        } finally {
+            setIsSaving(
+                false
+            );
+        }
+    }
+
+    async function handleCreateModalityTemplate(
+        event,
+        sector
+    ) {
+        event.preventDefault();
+
+        const name =
+            (
+                newModalityNames[
+                    sector.id
+                ] || ""
+            ).trim();
+
+        if (!name) {
+            setError(
+                "Informe o nome da nova modalidade."
+            );
+
+            return;
+        }
+
+        setIsSaving(true);
+        setError("");
+        setSuccess("");
+
+        try {
+            const response =
+                await createModalityTemplate(
+                    {
+                        name,
+                    },
+                    token
+                );
+
+            const createdTemplate =
+                response.modalityTemplate;
+
+            await loadData();
+
+            setModalityForms(
+                (current) => ({
+                    ...current,
+
+                    [sector.id]: {
+                        ...(
+                            current[
+                                sector.id
+                            ] || {
+                                capacity:
+                                    "",
+                                occupancyMode:
+                                    "QUANTITY",
+                            }
+                        ),
+
+                        modalityTemplateId:
+                            createdTemplate.id,
+                    },
+                })
+            );
+
+            setNewModalityNames(
+                (current) => ({
+                    ...current,
+
+                    [sector.id]:
+                        "",
+                })
+            );
+
+            setSuccess(
+                "Nova modalidade criada e selecionada."
+            );
+        } catch (error) {
+            setError(
+                error.message
+            );
+        } finally {
+            setIsSaving(
+                false
+            );
+        }
+    }
+
     async function handleCreateSector(
         event
     ) {
@@ -596,7 +759,8 @@ export default function OrganizerEventConfigurationPage() {
             setSectorForm({
                 sectorTemplateId:
                     "",
-                capacity: "",
+                capacity:
+                    "",
             });
 
             await refresh(
@@ -705,6 +869,7 @@ export default function OrganizerEventConfigurationPage() {
             setCategoryForms(
                 (current) => ({
                     ...current,
+
                     [modality.id]:
                         "",
                 })
@@ -765,10 +930,12 @@ export default function OrganizerEventConfigurationPage() {
                     ...current,
 
                     [modality.id]: {
-                        rowLabel: "",
+                        rowLabel:
+                            "",
                         startNumber:
                             "1",
-                        quantity: "",
+                        quantity:
+                            "",
                     },
                 })
             );
@@ -864,7 +1031,8 @@ export default function OrganizerEventConfigurationPage() {
                     ...current,
 
                     [modality.id]: {
-                        name: "",
+                        name:
+                            "",
                         quantity:
                             "",
                     },
@@ -987,7 +1155,7 @@ export default function OrganizerEventConfigurationPage() {
         Math.max(
             0,
             eventData.capacity -
-            eventCapacityUsed
+                eventCapacityUsed
         );
 
     const publicationProblems =
@@ -1061,7 +1229,8 @@ export default function OrganizerEventConfigurationPage() {
                     .ticketCategories ||
                 modality
                     .ticketCategories
-                    .length === 0
+                    .length ===
+                    0
             ) {
                 publicationProblems.push(
                     `"${modalityName}" não possui categoria de preço.`
@@ -1071,7 +1240,8 @@ export default function OrganizerEventConfigurationPage() {
             if (
                 !modality.batches ||
                 modality.batches
-                    .length === 0
+                    .length ===
+                    0
             ) {
                 publicationProblems.push(
                     `"${modalityName}" não possui lote.`
@@ -1288,112 +1458,153 @@ export default function OrganizerEventConfigurationPage() {
                     "DRAFT" &&
                     eventRemainingCapacity >
                         0 && (
-                        <details className="event-config-create-panel">
-                            <summary>
-                                + Adicionar setor
-                            </summary>
+                    <details className="event-config-create-panel">
+                        <summary>
+                            + Adicionar setor
+                        </summary>
 
-                            <form
-                                className="event-config-inline-form"
-                                onSubmit={
-                                    handleCreateSector
+                        <form
+                            className="event-config-inline-form"
+                            onSubmit={
+                                handleCreateSector
+                            }
+                        >
+                            <label>
+                                Setor
+
+                                <select
+                                    value={
+                                        sectorForm
+                                            .sectorTemplateId
+                                    }
+                                    onChange={(
+                                        event
+                                    ) =>
+                                        setSectorForm(
+                                            (
+                                                current
+                                            ) => ({
+                                                ...current,
+
+                                                sectorTemplateId:
+                                                    event
+                                                        .target
+                                                        .value,
+                                            })
+                                        )
+                                    }
+                                    required
+                                >
+                                    <option value="">
+                                        Selecione
+                                    </option>
+
+                                    {sectorTemplates.map(
+                                        (
+                                            template
+                                        ) => (
+                                            <option
+                                                key={
+                                                    template.id
+                                                }
+                                                value={
+                                                    template.id
+                                                }
+                                            >
+                                                {
+                                                    template.name
+                                                }
+                                            </option>
+                                        )
+                                    )}
+                                </select>
+                            </label>
+
+                            <div className="configuration-new-template">
+                                <span className="configuration-new-template-label">
+                                    Não encontrou o setor?
+                                </span>
+
+                                <div className="configuration-new-template-form">
+                                    <input
+                                        type="text"
+                                        value={
+                                            newSectorName
+                                        }
+                                        onChange={(
+                                            event
+                                        ) =>
+                                            setNewSectorName(
+                                                event
+                                                    .target
+                                                    .value
+                                            )
+                                        }
+                                        placeholder="Nome do novo setor"
+                                        disabled={
+                                            isSaving
+                                        }
+                                    />
+
+                                    <button
+                                        type="button"
+                                        onClick={
+                                            handleCreateSectorTemplate
+                                        }
+                                        disabled={
+                                            isSaving ||
+                                            !newSectorName.trim()
+                                        }
+                                    >
+                                        + Novo setor
+                                    </button>
+                                </div>
+                            </div>
+
+                            <label>
+                                Capacidade
+
+                                <input
+                                    type="number"
+                                    min="1"
+                                    max={
+                                        eventRemainingCapacity
+                                    }
+                                    value={
+                                        sectorForm
+                                            .capacity
+                                    }
+                                    onChange={(
+                                        event
+                                    ) =>
+                                        setSectorForm(
+                                            (
+                                                current
+                                            ) => ({
+                                                ...current,
+
+                                                capacity:
+                                                    event
+                                                        .target
+                                                        .value,
+                                            })
+                                        )
+                                    }
+                                    required
+                                />
+                            </label>
+
+                            <button
+                                type="submit"
+                                disabled={
+                                    isSaving
                                 }
                             >
-                                <label>
-                                    Setor
-
-                                    <select
-                                        value={
-                                            sectorForm
-                                                .sectorTemplateId
-                                        }
-                                        onChange={(
-                                            event
-                                        ) =>
-                                            setSectorForm(
-                                                (
-                                                    current
-                                                ) => ({
-                                                    ...current,
-
-                                                    sectorTemplateId:
-                                                        event
-                                                            .target
-                                                            .value,
-                                                })
-                                            )
-                                        }
-                                        required
-                                    >
-                                        <option value="">
-                                            Selecione
-                                        </option>
-
-                                        {sectorTemplates.map(
-                                            (
-                                                template
-                                            ) => (
-                                                <option
-                                                    key={
-                                                        template.id
-                                                    }
-                                                    value={
-                                                        template.id
-                                                    }
-                                                >
-                                                    {
-                                                        template.name
-                                                    }
-                                                </option>
-                                            )
-                                        )}
-                                    </select>
-                                </label>
-
-                                <label>
-                                    Capacidade
-
-                                    <input
-                                        type="number"
-                                        min="1"
-                                        max={
-                                            eventRemainingCapacity
-                                        }
-                                        value={
-                                            sectorForm
-                                                .capacity
-                                        }
-                                        onChange={(
-                                            event
-                                        ) =>
-                                            setSectorForm(
-                                                (
-                                                    current
-                                                ) => ({
-                                                    ...current,
-
-                                                    capacity:
-                                                        event
-                                                            .target
-                                                            .value,
-                                                })
-                                            )
-                                        }
-                                        required
-                                    />
-                                </label>
-
-                                <button
-                                    type="submit"
-                                    disabled={
-                                        isSaving
-                                    }
-                                >
-                                    Adicionar setor
-                                </button>
-                            </form>
-                        </details>
-                    )}
+                                Adicionar setor
+                            </button>
+                        </form>
+                    </details>
+                )}
 
                 <div className="event-config-sector-list">
                     {eventData.sectors.map(
@@ -1418,7 +1629,7 @@ export default function OrganizerEventConfigurationPage() {
                                 Math.max(
                                     0,
                                     sector.capacity -
-                                    sectorUsed
+                                        sectorUsed
                                 );
 
                             return (
@@ -1517,137 +1728,197 @@ export default function OrganizerEventConfigurationPage() {
                                             "DRAFT" &&
                                             sectorRemaining >
                                                 0 && (
-                                                <details className="event-config-create-panel event-config-create-panel-small">
-                                                    <summary>
-                                                        + Adicionar modalidade
-                                                    </summary>
+                                            <details className="event-config-create-panel event-config-create-panel-small">
+                                                <summary>
+                                                    + Adicionar modalidade
+                                                </summary>
 
-                                                    <form
-                                                        className="event-config-inline-form"
-                                                        onSubmit={(
-                                                            event
-                                                        ) =>
-                                                            handleCreateModality(
-                                                                event,
-                                                                sector
-                                                            )
-                                                        }
-                                                    >
-                                                        <label>
-                                                            Modalidade
+                                                <form
+                                                    className="event-config-inline-form"
+                                                    onSubmit={(
+                                                        event
+                                                    ) =>
+                                                        handleCreateModality(
+                                                            event,
+                                                            sector
+                                                        )
+                                                    }
+                                                >
+                                                    <label>
+                                                        Modalidade
 
-                                                            <select
-                                                                value={
-                                                                    modalityForm
-                                                                        .modalityTemplateId
-                                                                }
-                                                                onChange={(
+                                                        <select
+                                                            value={
+                                                                modalityForm
+                                                                    .modalityTemplateId
+                                                            }
+                                                            onChange={(
+                                                                event
+                                                            ) =>
+                                                                updateModalityForm(
+                                                                    sector.id,
+                                                                    "modalityTemplateId",
                                                                     event
-                                                                ) =>
-                                                                    updateModalityForm(
-                                                                        sector.id,
-                                                                        "modalityTemplateId",
-                                                                        event
-                                                                            .target
-                                                                            .value
-                                                                    )
-                                                                }
-                                                                required
-                                                            >
-                                                                <option value="">
-                                                                    Selecione
-                                                                </option>
+                                                                        .target
+                                                                        .value
+                                                                )
+                                                            }
+                                                            required
+                                                        >
+                                                            <option value="">
+                                                                Selecione
+                                                            </option>
 
-                                                                {modalityTemplates.map(
-                                                                    (
-                                                                        template
-                                                                    ) => (
-                                                                        <option
-                                                                            key={
-                                                                                template.id
-                                                                            }
-                                                                            value={
-                                                                                template.id
-                                                                            }
-                                                                        >
-                                                                            {
-                                                                                template.name
-                                                                            }
-                                                                        </option>
-                                                                    )
-                                                                )}
-                                                            </select>
-                                                        </label>
+                                                            {modalityTemplates.map(
+                                                                (
+                                                                    template
+                                                                ) => (
+                                                                    <option
+                                                                        key={
+                                                                            template.id
+                                                                        }
+                                                                        value={
+                                                                            template.id
+                                                                        }
+                                                                    >
+                                                                        {
+                                                                            template.name
+                                                                        }
+                                                                    </option>
+                                                                )
+                                                            )}
+                                                        </select>
+                                                    </label>
 
-                                                        <label>
-                                                            Capacidade
+                                                    <div className="configuration-new-template">
+                                                        <span className="configuration-new-template-label">
+                                                            Não encontrou a modalidade?
+                                                        </span>
 
+                                                        <div className="configuration-new-template-form">
                                                             <input
-                                                                type="number"
-                                                                min="1"
-                                                                max={
-                                                                    sectorRemaining
-                                                                }
+                                                                type="text"
                                                                 value={
-                                                                    modalityForm
-                                                                        .capacity
+                                                                    newModalityNames[
+                                                                        sector.id
+                                                                    ] || ""
                                                                 }
                                                                 onChange={(
                                                                     event
                                                                 ) =>
-                                                                    updateModalityForm(
-                                                                        sector.id,
-                                                                        "capacity",
-                                                                        event
-                                                                            .target
-                                                                            .value
+                                                                    setNewModalityNames(
+                                                                        (
+                                                                            current
+                                                                        ) => ({
+                                                                            ...current,
+
+                                                                            [sector.id]:
+                                                                                event
+                                                                                    .target
+                                                                                    .value,
+                                                                        })
                                                                     )
                                                                 }
-                                                                required
+                                                                placeholder="Nome da nova modalidade"
+                                                                disabled={
+                                                                    isSaving
+                                                                }
                                                             />
-                                                        </label>
 
-                                                        <label>
-                                                            Controle
-
-                                                            <select
-                                                                value={
-                                                                    modalityForm
-                                                                        .occupancyMode
-                                                                }
-                                                                onChange={(
+                                                            <button
+                                                                type="button"
+                                                                onClick={(
                                                                     event
                                                                 ) =>
-                                                                    updateModalityForm(
-                                                                        sector.id,
-                                                                        "occupancyMode",
-                                                                        event
-                                                                            .target
-                                                                            .value
+                                                                    handleCreateModalityTemplate(
+                                                                        event,
+                                                                        sector
                                                                     )
+                                                                }
+                                                                disabled={
+                                                                    isSaving ||
+                                                                    !(
+                                                                        newModalityNames[
+                                                                            sector.id
+                                                                        ] ||
+                                                                        ""
+                                                                    ).trim()
                                                                 }
                                                             >
-                                                                <option value="QUANTITY">
-                                                                    Quantidade
-                                                                </option>
+                                                                + Nova modalidade
+                                                            </button>
+                                                        </div>
+                                                    </div>
 
-                                                                <option value="SEAT">
-                                                                    Assento marcado
-                                                                </option>
-                                                            </select>
-                                                        </label>
+                                                    <label>
+                                                        Capacidade
 
-                                                        <button
-                                                            type="submit"
-                                                            disabled={
-                                                                isSaving
+                                                        <input
+                                                            type="number"
+                                                            min="1"
+                                                            max={
+                                                                sectorRemaining
+                                                            }
+                                                            value={
+                                                                modalityForm
+                                                                    .capacity
+                                                            }
+                                                            onChange={(
+                                                                event
+                                                            ) =>
+                                                                updateModalityForm(
+                                                                    sector.id,
+                                                                    "capacity",
+                                                                    event
+                                                                        .target
+                                                                        .value
+                                                                )
+                                                            }
+                                                            required
+                                                        />
+                                                    </label>
+
+                                                    <label>
+                                                        Controle
+
+                                                        <select
+                                                            value={
+                                                                modalityForm
+                                                                    .occupancyMode
+                                                            }
+                                                            onChange={(
+                                                                event
+                                                            ) =>
+                                                                updateModalityForm(
+                                                                    sector.id,
+                                                                    "occupancyMode",
+                                                                    event
+                                                                        .target
+                                                                        .value
+                                                                )
                                                             }
                                                         >
-                                                            Adicionar
-                                                        </button>
-                                                    </form>
-                                                </details>
-                                            )}
+                                                            <option value="QUANTITY">
+                                                                Quantidade
+                                                            </option>
+
+                                                            <option value="SEAT">
+                                                                Assento marcado
+                                                            </option>
+                                                        </select>
+                                                    </label>
+
+                                                    <button
+                                                        type="submit"
+                                                        disabled={
+                                                            isSaving
+                                                        }
+                                                    >
+                                                        Adicionar
+                                                    </button>
+                                                </form>
+                                            </details>
+                                        )}
 
                                         <div className="event-config-modality-list">
                                             {sector.modalities.map(
@@ -1663,7 +1934,7 @@ export default function OrganizerEventConfigurationPage() {
                                                         Math.max(
                                                             0,
                                                             modality.capacity -
-                                                            usedQuantity
+                                                                usedQuantity
                                                         );
 
                                                     const batchForm =
@@ -1811,111 +2082,111 @@ export default function OrganizerEventConfigurationPage() {
                                                                             "DRAFT" &&
                                                                             configuredSeats <
                                                                                 modality.capacity && (
-                                                                                <form
-                                                                                    className="event-config-inline-form event-config-seat-form"
-                                                                                    onSubmit={(
-                                                                                        event
-                                                                                    ) =>
-                                                                                        handleCreateSeats(
-                                                                                            event,
-                                                                                            modality
-                                                                                        )
+                                                                            <form
+                                                                                className="event-config-inline-form event-config-seat-form"
+                                                                                onSubmit={(
+                                                                                    event
+                                                                                ) =>
+                                                                                    handleCreateSeats(
+                                                                                        event,
+                                                                                        modality
+                                                                                    )
+                                                                                }
+                                                                            >
+                                                                                <label>
+                                                                                    Fileira
+
+                                                                                    <input
+                                                                                        value={
+                                                                                            getSeatForm(
+                                                                                                modality.id
+                                                                                            )
+                                                                                                .rowLabel
+                                                                                        }
+                                                                                        onChange={(
+                                                                                            event
+                                                                                        ) =>
+                                                                                            updateSeatForm(
+                                                                                                modality.id,
+                                                                                                "rowLabel",
+                                                                                                event
+                                                                                                    .target
+                                                                                                    .value
+                                                                                            )
+                                                                                        }
+                                                                                        placeholder="A"
+                                                                                        required
+                                                                                    />
+                                                                                </label>
+
+                                                                                <label>
+                                                                                    Primeiro número
+
+                                                                                    <input
+                                                                                        type="number"
+                                                                                        min="1"
+                                                                                        value={
+                                                                                            getSeatForm(
+                                                                                                modality.id
+                                                                                            )
+                                                                                                .startNumber
+                                                                                        }
+                                                                                        onChange={(
+                                                                                            event
+                                                                                        ) =>
+                                                                                            updateSeatForm(
+                                                                                                modality.id,
+                                                                                                "startNumber",
+                                                                                                event
+                                                                                                    .target
+                                                                                                    .value
+                                                                                            )
+                                                                                        }
+                                                                                        required
+                                                                                    />
+                                                                                </label>
+
+                                                                                <label>
+                                                                                    Quantidade
+
+                                                                                    <input
+                                                                                        type="number"
+                                                                                        min="1"
+                                                                                        max={
+                                                                                            modality.capacity -
+                                                                                            configuredSeats
+                                                                                        }
+                                                                                        value={
+                                                                                            getSeatForm(
+                                                                                                modality.id
+                                                                                            )
+                                                                                                .quantity
+                                                                                        }
+                                                                                        onChange={(
+                                                                                            event
+                                                                                        ) =>
+                                                                                            updateSeatForm(
+                                                                                                modality.id,
+                                                                                                "quantity",
+                                                                                                event
+                                                                                                    .target
+                                                                                                    .value
+                                                                                            )
+                                                                                        }
+                                                                                        required
+                                                                                    />
+                                                                                </label>
+
+                                                                                <button
+                                                                                    type="submit"
+                                                                                    disabled={
+                                                                                        isSaving
                                                                                     }
                                                                                 >
-                                                                                    <label>
-                                                                                        Fileira
-
-                                                                                        <input
-                                                                                            value={
-                                                                                                getSeatForm(
-                                                                                                    modality.id
-                                                                                                )
-                                                                                                    .rowLabel
-                                                                                            }
-                                                                                            onChange={(
-                                                                                                event
-                                                                                            ) =>
-                                                                                                updateSeatForm(
-                                                                                                    modality.id,
-                                                                                                    "rowLabel",
-                                                                                                    event
-                                                                                                        .target
-                                                                                                        .value
-                                                                                                )
-                                                                                            }
-                                                                                            placeholder="A"
-                                                                                            required
-                                                                                        />
-                                                                                    </label>
-
-                                                                                    <label>
-                                                                                        Primeiro número
-
-                                                                                        <input
-                                                                                            type="number"
-                                                                                            min="1"
-                                                                                            value={
-                                                                                                getSeatForm(
-                                                                                                    modality.id
-                                                                                                )
-                                                                                                    .startNumber
-                                                                                            }
-                                                                                            onChange={(
-                                                                                                event
-                                                                                            ) =>
-                                                                                                updateSeatForm(
-                                                                                                    modality.id,
-                                                                                                    "startNumber",
-                                                                                                    event
-                                                                                                        .target
-                                                                                                        .value
-                                                                                                )
-                                                                                            }
-                                                                                            required
-                                                                                        />
-                                                                                    </label>
-
-                                                                                    <label>
-                                                                                        Quantidade
-
-                                                                                        <input
-                                                                                            type="number"
-                                                                                            min="1"
-                                                                                            max={
-                                                                                                modality.capacity -
-                                                                                                configuredSeats
-                                                                                            }
-                                                                                            value={
-                                                                                                getSeatForm(
-                                                                                                    modality.id
-                                                                                                )
-                                                                                                    .quantity
-                                                                                            }
-                                                                                            onChange={(
-                                                                                                event
-                                                                                            ) =>
-                                                                                                updateSeatForm(
-                                                                                                    modality.id,
-                                                                                                    "quantity",
-                                                                                                    event
-                                                                                                        .target
-                                                                                                        .value
-                                                                                                )
-                                                                                            }
-                                                                                            required
-                                                                                        />
-                                                                                    </label>
-
-                                                                                    <button
-                                                                                        type="submit"
-                                                                                        disabled={
-                                                                                            isSaving
-                                                                                        }
-                                                                                    >
-                                                                                        Adicionar
-                                                                                    </button>
-                                                                                </form>
-                                                                            )}
+                                                                                    Adicionar
+                                                                                </button>
+                                                                            </form>
+                                                                        )}
 
                                                                         {configuredSeats >
                                                                             0 && (
@@ -2207,135 +2478,135 @@ export default function OrganizerEventConfigurationPage() {
                                                                             0 &&
                                                                         remainingQuantity >
                                                                             0 && (
-                                                                            <details className="event-config-create-panel event-config-create-panel-small">
-                                                                                <summary>
-                                                                                    + Adicionar lote
-                                                                                </summary>
+                                                                        <details className="event-config-create-panel event-config-create-panel-small">
+                                                                            <summary>
+                                                                                + Adicionar lote
+                                                                            </summary>
 
-                                                                                <form
-                                                                                    className="event-config-batch-form"
-                                                                                    onSubmit={(
-                                                                                        event
-                                                                                    ) =>
-                                                                                        handleCreateBatch(
-                                                                                            event,
-                                                                                            modality
+                                                                            <form
+                                                                                className="event-config-batch-form"
+                                                                                onSubmit={(
+                                                                                    event
+                                                                                ) =>
+                                                                                    handleCreateBatch(
+                                                                                        event,
+                                                                                        modality
+                                                                                    )
+                                                                                }
+                                                                            >
+                                                                                <label>
+                                                                                    Nome
+
+                                                                                    <input
+                                                                                        value={
+                                                                                            batchForm.name
+                                                                                        }
+                                                                                        onChange={(
+                                                                                            event
+                                                                                        ) =>
+                                                                                            updateBatchForm(
+                                                                                                modality.id,
+                                                                                                "name",
+                                                                                                event
+                                                                                                    .target
+                                                                                                    .value
+                                                                                            )
+                                                                                        }
+                                                                                        placeholder={`Lote ${nextSequence}`}
+                                                                                        required
+                                                                                    />
+                                                                                </label>
+
+                                                                                <label>
+                                                                                    Quantidade
+
+                                                                                    <input
+                                                                                        type="number"
+                                                                                        min="1"
+                                                                                        max={
+                                                                                            remainingQuantity
+                                                                                        }
+                                                                                        value={
+                                                                                            batchForm.quantity
+                                                                                        }
+                                                                                        onChange={(
+                                                                                            event
+                                                                                        ) =>
+                                                                                            updateBatchForm(
+                                                                                                modality.id,
+                                                                                                "quantity",
+                                                                                                event
+                                                                                                    .target
+                                                                                                    .value
+                                                                                            )
+                                                                                        }
+                                                                                        required
+                                                                                    />
+                                                                                </label>
+
+                                                                                <div className="event-config-prices">
+                                                                                    {modality.ticketCategories.map(
+                                                                                        (
+                                                                                            category
+                                                                                        ) => (
+                                                                                            <label
+                                                                                                key={
+                                                                                                    category.id
+                                                                                                }
+                                                                                            >
+                                                                                                {
+                                                                                                    category
+                                                                                                        .priceCategoryTemplate
+                                                                                                        .name
+                                                                                                }
+
+                                                                                                <div className="event-config-money">
+                                                                                                    <span>
+                                                                                                        R$
+                                                                                                    </span>
+
+                                                                                                    <input
+                                                                                                        inputMode="decimal"
+                                                                                                        value={
+                                                                                                            getPriceForm(
+                                                                                                                modality.id,
+                                                                                                                category.id
+                                                                                                            )
+                                                                                                        }
+                                                                                                        onChange={(
+                                                                                                            event
+                                                                                                        ) =>
+                                                                                                            updatePriceForm(
+                                                                                                                modality.id,
+                                                                                                                category.id,
+                                                                                                                event
+                                                                                                                    .target
+                                                                                                                    .value
+                                                                                                            )
+                                                                                                        }
+                                                                                                        placeholder="0,00"
+                                                                                                        required
+                                                                                                    />
+                                                                                                </div>
+                                                                                            </label>
                                                                                         )
+                                                                                    )}
+                                                                                </div>
+
+                                                                                <button
+                                                                                    type="submit"
+                                                                                    disabled={
+                                                                                        isSaving
                                                                                     }
                                                                                 >
-                                                                                    <label>
-                                                                                        Nome
-
-                                                                                        <input
-                                                                                            value={
-                                                                                                batchForm.name
-                                                                                            }
-                                                                                            onChange={(
-                                                                                                event
-                                                                                            ) =>
-                                                                                                updateBatchForm(
-                                                                                                    modality.id,
-                                                                                                    "name",
-                                                                                                    event
-                                                                                                        .target
-                                                                                                        .value
-                                                                                                )
-                                                                                            }
-                                                                                            placeholder={`Lote ${nextSequence}`}
-                                                                                            required
-                                                                                        />
-                                                                                    </label>
-
-                                                                                    <label>
-                                                                                        Quantidade
-
-                                                                                        <input
-                                                                                            type="number"
-                                                                                            min="1"
-                                                                                            max={
-                                                                                                remainingQuantity
-                                                                                            }
-                                                                                            value={
-                                                                                                batchForm.quantity
-                                                                                            }
-                                                                                            onChange={(
-                                                                                                event
-                                                                                            ) =>
-                                                                                                updateBatchForm(
-                                                                                                    modality.id,
-                                                                                                    "quantity",
-                                                                                                    event
-                                                                                                        .target
-                                                                                                        .value
-                                                                                                )
-                                                                                            }
-                                                                                            required
-                                                                                        />
-                                                                                    </label>
-
-                                                                                    <div className="event-config-prices">
-                                                                                        {modality.ticketCategories.map(
-                                                                                            (
-                                                                                                category
-                                                                                            ) => (
-                                                                                                <label
-                                                                                                    key={
-                                                                                                        category.id
-                                                                                                    }
-                                                                                                >
-                                                                                                    {
-                                                                                                        category
-                                                                                                            .priceCategoryTemplate
-                                                                                                            .name
-                                                                                                    }
-
-                                                                                                    <div className="event-config-money">
-                                                                                                        <span>
-                                                                                                            R$
-                                                                                                        </span>
-
-                                                                                                        <input
-                                                                                                            inputMode="decimal"
-                                                                                                            value={
-                                                                                                                getPriceForm(
-                                                                                                                    modality.id,
-                                                                                                                    category.id
-                                                                                                                )
-                                                                                                            }
-                                                                                                            onChange={(
-                                                                                                                event
-                                                                                                            ) =>
-                                                                                                                updatePriceForm(
-                                                                                                                    modality.id,
-                                                                                                                    category.id,
-                                                                                                                    event
-                                                                                                                        .target
-                                                                                                                        .value
-                                                                                                                )
-                                                                                                            }
-                                                                                                            placeholder="0,00"
-                                                                                                            required
-                                                                                                        />
-                                                                                                    </div>
-                                                                                                </label>
-                                                                                            )
-                                                                                        )}
-                                                                                    </div>
-
-                                                                                    <button
-                                                                                        type="submit"
-                                                                                        disabled={
-                                                                                            isSaving
-                                                                                        }
-                                                                                    >
-                                                                                        Criar Lote{" "}
-                                                                                        {
-                                                                                            nextSequence
-                                                                                        }
-                                                                                    </button>
-                                                                                </form>
-                                                                            </details>
-                                                                        )}
+                                                                                    Criar Lote{" "}
+                                                                                    {
+                                                                                        nextSequence
+                                                                                    }
+                                                                                </button>
+                                                                            </form>
+                                                                        </details>
+                                                                    )}
                                                                 </section>
                                                             </div>
                                                         </details>

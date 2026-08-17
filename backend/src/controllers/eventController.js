@@ -5,6 +5,38 @@ import {
 } from "../services/checkoutService.js";
 
 // ======================================================
+// ORDENAÇÃO NATURAL DE ASSENTOS
+// ======================================================
+
+function compareSeatLabels(
+    seatA,
+    seatB
+) {
+    const labelA =
+        String(
+            seatA?.normalizedLabel ||
+            seatA?.label ||
+            ""
+        ).trim();
+
+    const labelB =
+        String(
+            seatB?.normalizedLabel ||
+            seatB?.label ||
+            ""
+        ).trim();
+
+    return labelA.localeCompare(
+        labelB,
+        "pt-BR",
+        {
+            numeric: true,
+            sensitivity: "base",
+        }
+    );
+}
+
+// ======================================================
 // SELECTS COMPARTILHADOS
 // ======================================================
 
@@ -208,11 +240,6 @@ export async function getPublicEventById(
                                                 true,
                                         },
 
-                                        orderBy: {
-                                            normalizedLabel:
-                                                "asc",
-                                        },
-
                                         select: {
                                             id: true,
                                             label: true,
@@ -274,6 +301,16 @@ export async function getPublicEventById(
                                         async (
                                             modality
                                         ) => {
+                                            const sortedSeats =
+                                                [
+                                                    ...(
+                                                        modality.seats ||
+                                                        []
+                                                    ),
+                                                ].sort(
+                                                    compareSeatLabels
+                                                );
+
                                             const currentBatch =
                                                 await getCurrentBatchForModality(
                                                     prisma,
@@ -285,6 +322,9 @@ export async function getPublicEventById(
                                             ) {
                                                 return {
                                                     ...modality,
+
+                                                    seats:
+                                                        sortedSeats,
 
                                                     batches:
                                                         [],
@@ -360,6 +400,9 @@ export async function getPublicEventById(
 
                                             return {
                                                 ...modality,
+
+                                                seats:
+                                                    sortedSeats,
 
                                                 batches:
                                                     [

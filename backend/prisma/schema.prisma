@@ -134,6 +134,7 @@ model PriceQuotaGroup {
 // ======================================================
 //
 // Exemplos:
+//
 // INTEIRA
 // MEIA
 // MEIA SOCIAL
@@ -185,7 +186,7 @@ model Event {
   address   String?
   city      String?
   state     String?
-  country   String @default("BR")
+  country   String  @default("BR")
 
   latitude  Float?
   longitude Float?
@@ -209,15 +210,14 @@ model Event {
 
   sectors EventSector[]
 
+  // Impede que o mesmo organizador importe
+  // duas vezes o mesmo item da mesma fonte.
+  @@unique([organizerId, source, externalId])
   @@index([organizerId])
   @@index([categoryTemplateId])
   @@index([city])
   @@index([dateTime])
   @@index([source])
-
-  // Impede que o mesmo organizador importe
-  // duas vezes o mesmo item da mesma fonte.
-  @@unique([organizerId, source, externalId])
 }
 
 // ======================================================
@@ -226,6 +226,20 @@ model Event {
 //
 // O template é global, porém capacidade e configuração
 // pertencem especificamente ao evento.
+//
+// layoutRow:
+// define a distância lógica do setor em relação ao
+// palco/tela.
+//
+// Linha menor = setor mais próximo.
+//
+// layoutColumn:
+// define a posição horizontal do setor dentro da linha.
+//
+// Coluna menor = setor mais à esquerda.
+//
+// Os dois campos permanecem nulos para setores antigos
+// ou setores cuja posição ainda não foi configurada.
 // ======================================================
 
 model EventSector {
@@ -236,6 +250,9 @@ model EventSector {
 
   capacity Int
 
+  layoutRow    Int?
+  layoutColumn Int?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -245,8 +262,16 @@ model EventSector {
   modalities EventSectorModality[]
 
   @@unique([eventId, sectorTemplateId])
+  // Quando linha e coluna estiverem preenchidas,
+  // evita que dois setores do mesmo evento ocupem
+  // exatamente a mesma posição da planta.
+  //
+  // Como os campos são opcionais, setores antigos
+  // podem permanecer sem posição até serem revisados.
+  @@unique([eventId, layoutRow, layoutColumn])
   @@index([eventId])
   @@index([sectorTemplateId])
+  @@index([eventId, layoutRow, layoutColumn])
 }
 
 // ======================================================

@@ -13,6 +13,76 @@ function normalizeName(
         );
 }
 
+function compareEventSectors(
+    sectorA,
+    sectorB
+) {
+    const rowA =
+        sectorA.layoutRow;
+
+    const rowB =
+        sectorB.layoutRow;
+
+    if (
+        rowA === null &&
+        rowB !== null
+    ) {
+        return 1;
+    }
+
+    if (
+        rowA !== null &&
+        rowB === null
+    ) {
+        return -1;
+    }
+
+    if (
+        rowA !== null &&
+        rowB !== null &&
+        rowA !== rowB
+    ) {
+        return rowA - rowB;
+    }
+
+    const columnA =
+        sectorA.layoutColumn;
+
+    const columnB =
+        sectorB.layoutColumn;
+
+    if (
+        columnA === null &&
+        columnB !== null
+    ) {
+        return 1;
+    }
+
+    if (
+        columnA !== null &&
+        columnB === null
+    ) {
+        return -1;
+    }
+
+    if (
+        columnA !== null &&
+        columnB !== null &&
+        columnA !== columnB
+    ) {
+        return columnA - columnB;
+    }
+
+    return (
+        new Date(
+            sectorA.createdAt
+        ).getTime() -
+        new Date(
+            sectorB.createdAt
+        ).getTime()
+    );
+}
+
 // ======================================================
 // CRIAR TEMPLATE DE SETOR
 // ======================================================
@@ -222,6 +292,9 @@ export async function getEventConfiguration(
                         select: {
                             id: true,
                             capacity: true,
+                            layoutRow: true,
+                            layoutColumn: true,
+                            createdAt: true,
 
                             sectorTemplate: {
                                 select: {
@@ -341,8 +414,19 @@ export async function getEventConfiguration(
             });
         }
 
+        const orderedSectors =
+            [
+                ...event.sectors,
+            ].sort(
+                compareEventSectors
+            );
+
         return res.status(200).json({
-            event,
+            event: {
+                ...event,
+                sectors:
+                    orderedSectors,
+            },
         });
     } catch (error) {
         console.error(
@@ -372,21 +456,76 @@ export async function createEventSector(
         const {
             sectorTemplateId,
             capacity,
+            layoutRow,
+            layoutColumn,
         } = req.body;
 
         const parsedCapacity =
             Number(capacity);
+
+        const hasLayoutRow =
+            layoutRow !==
+                undefined &&
+            layoutRow !==
+                null &&
+            layoutRow !==
+                "";
+
+        const hasLayoutColumn =
+            layoutColumn !==
+                undefined &&
+            layoutColumn !==
+                null &&
+            layoutColumn !==
+                "";
+
+        if (
+            hasLayoutRow !==
+            hasLayoutColumn
+        ) {
+            return res.status(400).json({
+                message:
+                    "Informe linha e coluna da planta juntas.",
+            });
+        }
+
+        const parsedLayoutRow =
+            hasLayoutRow
+                ? Number(
+                      layoutRow
+                  )
+                : null;
+
+        const parsedLayoutColumn =
+            hasLayoutColumn
+                ? Number(
+                      layoutColumn
+                  )
+                : null;
 
         if (
             !sectorTemplateId ||
             !Number.isInteger(
                 parsedCapacity
             ) ||
-            parsedCapacity <= 0
+            parsedCapacity <= 0 ||
+            (
+                hasLayoutRow &&
+                (
+                    !Number.isInteger(
+                        parsedLayoutRow
+                    ) ||
+                    parsedLayoutRow <= 0 ||
+                    !Number.isInteger(
+                        parsedLayoutColumn
+                    ) ||
+                    parsedLayoutColumn <= 0
+                )
+            )
         ) {
             return res.status(400).json({
                 message:
-                    "Informe setor e capacidade válidos.",
+                    "Informe setor, capacidade e posição válidos.",
             });
         }
 
@@ -450,6 +589,34 @@ export async function createEventSector(
             });
         }
 
+        if (
+            parsedLayoutRow !==
+                null &&
+            parsedLayoutColumn !==
+                null
+        ) {
+            const occupiedPosition =
+                await prisma.eventSector
+                    .findFirst({
+                        where: {
+                            eventId,
+                            layoutRow:
+                                parsedLayoutRow,
+                            layoutColumn:
+                                parsedLayoutColumn,
+                        },
+                    });
+
+            if (
+                occupiedPosition
+            ) {
+                return res.status(409).json({
+                    message:
+                        "Já existe um setor nesta posição da planta.",
+                });
+            }
+        }
+
         const sector =
             await prisma.eventSector.create({
                 data: {
@@ -457,6 +624,12 @@ export async function createEventSector(
                     sectorTemplateId,
                     capacity:
                         parsedCapacity,
+
+                    layoutRow:
+                        parsedLayoutRow,
+
+                    layoutColumn:
+                        parsedLayoutColumn,
                 },
 
                 include: {
@@ -471,6 +644,16 @@ export async function createEventSector(
             sector,
         });
     } catch (error) {
+        if (
+            error.code ===
+            "P2002"
+        ) {
+            return res.status(409).json({
+                message:
+                    "Já existe um setor com este tipo ou posição neste evento.",
+            });
+        }
+
         console.error(
             "Erro ao criar setor:",
             error

@@ -4,47 +4,15 @@
 
 Boraí é uma plataforma web para descoberta, gerenciamento, venda e validação de ingressos para diferentes tipos de eventos.
 
-O projeto funciona como um **hub multi-eventos**, permitindo trabalhar com formatos como:
-
-- shows e festas;
-- cinema;
-- teatro e espetáculos;
-- workshops e palestras;
-- eventos literários;
-- eventos com lugares marcados;
-- eventos com controle apenas por quantidade.
-
-A aplicação possui três perfis principais:
-
-- **Organizador**
-- **Cliente**
-- **Portaria**
+O sistema funciona como um hub multi-eventos e suporta cenários como shows, cinema, teatro, eventos literários, palestras, workshops e eventos esportivos, com venda por quantidade ou lugares marcados.
 
 ---
 
-# Status do Projeto
+## Status
 
-**Em desenvolvimento.**
+**Versão funcional em fase de revisão final.**
 
-## Etapas concluídas
-
-- [x] **Etapa 0** — Conceituação e documentação base
-- [x] **Etapa 1** — Setup do projeto, banco de dados e seeds
-- [x] **Etapa 2** — Autenticação JWT e controle de acesso por perfil (RBAC)
-- [x] **Etapa 3** — Modelagem avançada de eventos, ingressos, setores, modalidades e lotes
-- [x] **Etapa 4** — Reservas, checkout, pagamento simulado, QR Code e validação de ingressos no Back-End
-- [x] **Etapa 5** — Front-End: autenticação, catálogo público e estrutura dos perfis
-- [x] **Etapa 6** — Módulo do Organizador, criação, configuração e publicação de eventos
-- [x] **Etapa 7** — Seleção de ingressos e checkout no Front-End
-- [x] **Etapa 8** — Meus Ingressos e visualização de QR Code
-- [x] **Etapa 9** — Portal da Portaria e validação de ingressos
-- [x] **Etapa 10** — Busca avançada, filtros e painel de métricas
-
-## Próximas etapas
-
-- [ ] **Etapa 11** — Cancelamento e devolução ao estoque
-- [ ] **Etapa 12** — Docker e testes automatizados
-- [ ] **Etapa 13** — Publicação, polimento e entrega final
+As funcionalidades planejadas para esta versão foram implementadas. A etapa restante consiste no teste final de ponta a ponta.
 
 O histórico detalhado do desenvolvimento está disponível em:
 
@@ -54,125 +22,38 @@ documents/etapas_desenvolvimento.md
 
 ---
 
-# Funcionalidades Disponíveis
+# Principais Funcionalidades
 
 ## Área Pública
 
-O visitante pode utilizar a aplicação sem autenticação para descobrir eventos.
+Visitantes podem:
 
-Atualmente estão disponíveis:
+- visualizar a Home;
+- consultar o catálogo de eventos;
+- pesquisar eventos;
+- filtrar por categoria, cidade, mês e ano;
+- combinar filtros;
+- abrir detalhes de um evento;
+- consultar setores, modalidades e preços disponíveis;
+- acessar ingressos compartilhados através de link público.
 
-- Home;
-- catálogo público;
-- eventos em destaque;
-- cards de eventos;
-- card inteiro clicável;
-- página de detalhes;
-- busca textual;
-- filtros por categoria;
-- filtros por cidade;
-- filtros por mês;
-- filtros por ano;
-- combinação de filtros;
-- filtro recebido através da URL;
-- visualização de informações do evento;
-- visualização da estrutura comercial disponível;
-- navegação responsiva;
-- página 404;
-- tratamento visual para eventos sem imagem;
-- visualização pública de ingresso compartilhado.
-
-Rotas principais:
+Principais rotas:
 
 ```text
 /
-```
-
-Home pública.
-
-```text
 /eventos
-```
-
-Catálogo público.
-
-```text
 /eventos/:eventId
-```
-
-Detalhes de um evento.
-
-```text
 /ingresso/:sharedToken
-```
-
-Visualização pública de um ingresso compartilhado.
-
-```text
 /login
 ```
 
-Autenticação.
-
 ---
 
-# Busca e Filtros
+# Autenticação e Perfis
 
-O catálogo público permite localizar eventos através de diferentes critérios.
+A autenticação utiliza **JWT** e controle de acesso baseado em perfil.
 
-Atualmente estão disponíveis:
-
-```text
-busca textual
-+
-categoria
-+
-cidade
-+
-mês
-+
-ano
-```
-
-Os filtros podem ser combinados.
-
-Exemplo:
-
-```text
-SHOW
-+
-Fortaleza
-+
-Agosto
-+
-2026
-```
-
-A aplicação mantém somente os eventos que atendem simultaneamente aos critérios selecionados.
-
-Quando nenhum filtro está ativo, o catálogo apresenta normalmente os eventos públicos disponíveis.
-
----
-
-# Autenticação
-
-A autenticação utiliza:
-
-```text
-JWT
-```
-
-O Front-End possui integração com o Back-End para:
-
-- login;
-- persistência da sessão;
-- identificação do usuário;
-- logout;
-- proteção de rotas;
-- redirecionamento;
-- controle de acesso conforme o perfil.
-
-Os três papéis existentes são:
+Perfis disponíveis:
 
 ```text
 CLIENT
@@ -180,19 +61,13 @@ ORGANIZER
 CHECKIN
 ```
 
+As rotas protegidas validam autenticação e perfil antes de permitir o acesso.
+
 ---
 
-# Controle de Acesso — RBAC
+# Cliente
 
-O sistema possui controle de acesso por perfil.
-
-## Cliente
-
-```text
-CLIENT
-```
-
-Área:
+Área principal:
 
 ```text
 /cliente
@@ -200,18 +75,27 @@ CLIENT
 
 O Cliente pode:
 
+- selecionar ingressos;
+- comprar por quantidade;
+- selecionar lugares marcados;
+- escolher categoria de preço;
+- realizar checkout;
+- utilizar pagamento simulado;
 - visualizar seus ingressos;
-- consultar informações dos Tickets adquiridos;
-- visualizar QR Code privado;
+- consultar QR Code;
 - compartilhar uma visualização pública do ingresso.
 
-## Organizador
+Cada checkout permite no máximo:
 
 ```text
-ORGANIZER
+10 ingressos
 ```
 
-Área:
+---
+
+# Organizador
+
+Área principal:
 
 ```text
 /organizador
@@ -219,174 +103,140 @@ ORGANIZER
 
 O Organizador pode:
 
-- criar eventos;
-- editar eventos;
+- criar eventos manualmente;
+- consultar eventos externos;
+- utilizar TMDb e Ticketmaster como fontes de dados;
+- revisar dados externos antes da criação;
+- editar eventos em rascunho;
 - configurar setores;
 - criar novos tipos de setor;
 - configurar modalidades;
 - criar novos tipos de modalidade;
 - configurar categorias de preço;
-- configurar lotes;
-- configurar assentos;
-- visualizar pendências;
+- configurar lotes e valores;
+- configurar lugares marcados;
 - publicar eventos;
-- acompanhar eventos futuros;
-- consultar eventos realizados;
-- visualizar métricas gerais;
-- filtrar métricas;
-- visualizar métricas individuais por evento.
+- acompanhar eventos publicados e encerrados;
+- visualizar métricas comerciais.
 
-## Portaria
+Os eventos são organizados em:
 
 ```text
-CHECKIN
+Rascunhos
+Publicados
+Encerrados
 ```
 
-Área:
+## Rascunhos
+
+Eventos com:
 
 ```text
-/portaria
+DRAFT
 ```
 
-A Portaria pode:
+podem permanecer incompletos enquanto estão sendo configurados.
 
-- validar ingressos;
-- utilizar leitura por câmera;
-- inserir manualmente o token do QR Code;
-- identificar ingresso válido;
-- identificar ingresso já utilizado;
-- identificar ingresso cancelado;
-- rejeitar QR Code inválido.
+## Publicados
 
-Um usuário autenticado não pode acessar diretamente uma área destinada a outro perfil.
+Eventos com:
+
+```text
+PUBLISHED
+```
+
+são disponibilizados no catálogo público quando aplicável.
+
+## Encerrados
+
+Eventos publicados cuja data já passou permanecem no histórico do Organizador.
 
 ---
 
-# Módulo do Organizador
+# Criação e Publicação de Eventos
 
-O módulo do Organizador permite gerenciar o ciclo principal de criação, configuração, publicação e acompanhamento de eventos.
-
-O fluxo inclui:
+O fluxo principal é:
 
 ```text
-Criar evento
-↓
-Configurar estrutura comercial
-↓
-Setores
-↓
-Modalidades
-↓
-Categorias
-↓
-Lotes
-↓
-Assentos, quando aplicável
-↓
-Validar pendências
-↓
-Publicar
-↓
-Acompanhar vendas e métricas
+Criação manual ou seleção de evento externo
+                ↓
+              DRAFT
+                ↓
+       Editar informações
+                ↓
+       Configurar setores
+                ↓
+     Configurar modalidades
+                ↓
+     Categorias de preço
+                ↓
+              Lotes
+                ↓
+    Assentos, quando aplicável
+                ↓
+            Validação
+                ↓
+       Publicação manual
+                ↓
+           PUBLISHED
 ```
 
-O evento somente pode ser publicado quando atende às regras obrigatórias de configuração.
+Um evento só pode ser publicado quando sua configuração obrigatória estiver consistente.
 
-A interface apresenta as pendências diretamente na página do próprio evento antes da publicação.
+O Back-End valida, entre outros pontos:
+
+- capacidade do evento;
+- capacidade dos setores;
+- capacidade das modalidades;
+- categorias de preço;
+- lotes;
+- preços;
+- quantidades;
+- assentos em modalidades `SEAT`.
 
 ---
 
-# Eventos Próximos e Realizados
+# Estrutura Comercial
 
-O painel do Organizador separa os eventos em duas abas:
-
-```text
-[ Próximos ] [ Realizados ]
-```
-
-A classificação utiliza a data e horário do evento.
-
-Eventos cuja data ainda não ocorreu aparecem em:
+A estrutura de venda segue a hierarquia:
 
 ```text
-Próximos
+Evento
+└── Setor
+    └── Modalidade
+        ├── Categoria de preço
+        ├── Lotes
+        └── Assentos, quando aplicável
 ```
-
-Eventos cuja data já passou aparecem em:
-
-```text
-Realizados
-```
-
-Cada aba apresenta também a quantidade de eventos pertencentes ao grupo.
-
----
-
-# Estrutura Comercial dos Eventos
-
-O Boraí permite configurar eventos utilizando diferentes estruturas de venda.
 
 ## Setores
 
-Os setores representam divisões do evento, como:
+Exemplos:
 
 ```text
-Pista
-Camarote
-Cadeira Superior
-Cadeira Inferior
+PISTA
+CAMAROTE
+CADEIRA INFERIOR
+CADEIRA SUPERIOR
+PLATEIA
 ```
 
-Cada setor possui capacidade própria.
+Cada setor possui sua própria capacidade.
 
-Além dos templates já existentes, o Organizador pode criar novos setores durante a configuração.
-
-Exemplo:
-
-```text
-Não encontrou o setor?
-
-[ Nome do novo setor ] [+ Novo setor]
-```
-
-Após a criação, o novo setor passa a fazer parte dos templates disponíveis.
+O Organizador também pode criar novos tipos de setor.
 
 ## Modalidades
 
-As modalidades determinam como o ingresso é vendido dentro de um setor.
-
-O projeto suporta:
+Existem dois modos principais de ocupação:
 
 ```text
 QUANTITY
 SEAT
 ```
 
-O Organizador também pode criar novas modalidades quando o tipo desejado ainda não existe.
-
-Exemplo:
-
-```text
-Não encontrou a modalidade?
-
-[ Nome da nova modalidade ] [+ Nova modalidade]
-```
-
-A modalidade criada pode ser utilizada no setor correspondente.
-
 ### QUANTITY
 
-Venda controlada por quantidade.
-
-Exemplo:
-
-```text
-Pista
-↓
-1000 lugares
-↓
-controle por quantidade
-```
+Venda controlada por quantidade, sem escolha individual de lugar.
 
 ### SEAT
 
@@ -395,52 +245,15 @@ Venda utilizando assentos individuais.
 Exemplo:
 
 ```text
-Cadeira Inferior
-↓
 A1
 A2
 A3
-A4
 ...
 ```
 
 Cada assento possui disponibilidade própria.
 
----
-
-# Capacidades
-
-O Back-End valida múltiplos níveis de capacidade:
-
-```text
-Evento
-↓
-Setor
-↓
-Modalidade
-↓
-Lote
-```
-
-Uma compra não pode ultrapassar nenhum desses limites.
-
-Também são consideradas cotas associadas às categorias de preço.
-
-Na configuração do Organizador são apresentadas informações de:
-
-```text
-capacidade total
-capacidade utilizada
-capacidade disponível
-```
-
-A publicação permanece bloqueada enquanto a configuração comercial não estiver consistente.
-
----
-
-# Categorias de Preço
-
-Uma modalidade pode possuir diferentes categorias de ingresso.
+## Categorias de Preço
 
 Exemplos:
 
@@ -448,176 +261,137 @@ Exemplos:
 INTEIRA
 MEIA
 MEIA SOCIAL
+VALOR ÚNICO
 ```
 
-As categorias podem participar de grupos de cota.
+`MEIA` e `MEIA SOCIAL` podem compartilhar um grupo de cota configurado no sistema.
 
-O Back-End controla os limites definidos para esses grupos.
-
----
-
-# Lotes
-
-Os ingressos podem ser organizados em lotes.
+## Lotes
 
 Cada lote possui:
 
+- sequência;
 - quantidade;
-- preço;
-- ordem;
+- preços por categoria;
 - estado ativo.
 
-A progressão ocorre conforme a disponibilidade.
-
-Para o comprador, os nomes e números dos lotes não são apresentados durante a seleção.
-
-O Front-End exibe somente os preços correspondentes ao lote atualmente disponível para venda.
+O comprador visualiza somente os valores correspondentes ao lote atualmente disponível.
 
 ---
 
-# Seleção de Ingressos e Checkout
+# Integração com APIs Externas
 
-A Etapa 7 implementou o fluxo de compra no Front-End para o perfil `CLIENT`.
+O projeto possui integração com:
 
-Na página de detalhes de um evento publicado, o Cliente pode:
+- **TMDb**
+- **Ticketmaster Discovery API**
 
-- visualizar somente os preços do lote atualmente em venda;
-- selecionar ingressos de modalidades `QUANTITY`;
-- aumentar ou reduzir quantidades por categoria;
-- selecionar múltiplos assentos em modalidades `SEAT`;
-- definir individualmente a categoria de cada assento;
-- selecionar no máximo 10 ingressos por checkout;
-- visualizar subtotal, taxa de serviço e total;
-- iniciar o checkout autenticado;
-- executar pagamento simulado aprovado ou recusado;
-- visualizar a confirmação da compra;
-- receber a disponibilidade atualizada após a conclusão.
+Essas APIs são utilizadas somente como fontes auxiliares de dados.
 
-Fluxo principal:
+Elas **não criam nem publicam eventos automaticamente**.
+
+## Catálogo Externo
+
+Rota:
 
 ```text
-Evento publicado
+/organizador/eventos/importar
+```
+
+O Organizador pode:
+
+- escolher o tipo de evento;
+- visualizar opções disponíveis;
+- pesquisar;
+- filtrar por estado quando aplicável;
+- navegar entre páginas;
+- selecionar um ou vários eventos;
+- revisar cada item antes da criação.
+
+Fluxo:
+
+```text
+TMDb / Ticketmaster
+        ↓
+Catálogo externo
+        ↓
+Seleção
+        ↓
+Revisão no formulário
+        ↓
+Edição / complementação
+        ↓
+Confirmação
+        ↓
+DRAFT
+```
+
+A publicação continua sendo manual.
+
+---
+
+# Checkout
+
+O checkout suporta:
+
+```text
+QUANTITY
+SEAT
+```
+
+Fluxo:
+
+```text
+Evento
 ↓
-Selecionar ingressos
+Seleção do ingresso
 ↓
-QUANTITY ou SEAT
+Categoria
 ↓
-Quantidade ou assentos
-↓
-Categoria de preço
-↓
-Máximo de 10 ingressos
-↓
-Login CLIENT
+Quantidade ou assento
 ↓
 Checkout
 ↓
-Subtotal + taxa + total
+Subtotal
+↓
+Taxa de serviço
 ↓
 Pagamento simulado
 ↓
 APPROVED ou REFUSED
 ```
 
----
-
-# Regra de Limite por Checkout
-
-Cada checkout aceita no máximo:
-
-```text
-10 ingressos
-```
-
-O limite considera a soma de:
-
-- ingressos por quantidade;
-- assentos selecionados.
-
-A interface impede a seleção acima desse limite e o Back-End também mantém sua própria validação.
-
----
-
-# Taxa de Serviço
-
-O checkout utiliza taxa de serviço de:
+A taxa padrão configurada no projeto é:
 
 ```text
 12%
 ```
 
-O cálculo considera:
+Quando o pagamento é aprovado:
 
-```text
-subtotal
-serviceFee
-total
-```
-
-A porcentagem é uma regra interna de cálculo e não precisa ser apresentada explicitamente ao Cliente na interface.
-
----
-
-# Checkout e Pagamento
-
-O checkout exige autenticação como:
-
-```text
-CLIENT
-```
-
-Caso o visitante inicie uma compra sem estar autenticado, ele é direcionado ao login e pode retornar ao fluxo posteriormente.
-
-O pagamento atual é simulado.
-
-Estados principais:
-
-```text
-APPROVED
-REFUSED
-```
-
-Quando aprovado:
-
-- o pedido é concluído;
-- os Tickets são gerados;
+- o pedido é criado;
+- os Tickets são emitidos;
 - o estoque é atualizado;
-- assentos adquiridos permanecem indisponíveis;
-- QR Codes individuais ficam associados aos Tickets.
-
-Quando recusado:
-
-- a compra não é concluída;
-- não são emitidos Tickets válidos.
+- assentos vendidos ficam indisponíveis;
+- cada Ticket recebe uma identificação própria.
 
 ---
 
-# Meus Ingressos
+# Reservas e Concorrência
 
-A Etapa 8 implementou a área de ingressos do Cliente.
+Modalidades `QUANTITY` validam a disponibilidade no momento da conclusão da compra.
 
-Na rota:
+Modalidades `SEAT` utilizam bloqueio temporário durante o checkout.
 
-```text
-/cliente
-```
+Se a sessão expirar, o assento ainda não vendido volta a ficar disponível.
 
-o usuário pode visualizar os Tickets pertencentes à sua conta.
+Assentos efetivamente vendidos permanecem indisponíveis.
 
-Cada ingresso apresenta informações como:
+---
 
-- evento;
-- imagem;
-- data;
-- local;
-- setor;
-- modalidade;
-- categoria;
-- assento, quando aplicável;
-- valor;
-- status.
+# Ingressos e QR Code
 
-Estados suportados:
+Cada Ticket pode assumir estados como:
 
 ```text
 VALID
@@ -625,579 +399,87 @@ USED
 CANCELLED
 ```
 
----
+O Cliente proprietário pode acessar seu QR Code privado.
 
-# QR Code do Ingresso
-
-Cada Ticket possui um QR Code privado.
-
-O QR utiliza um token assinado contendo informações relacionadas ao:
+O QR Code e o link público possuem responsabilidades diferentes:
 
 ```text
-ticketId
-orderId
-```
+QR privado
+→ validação de entrada
 
-O token é assinado utilizando segredo privado do servidor.
-
-O banco não armazena diretamente o token completo utilizado pelo QR.
-
-É armazenado um hash utilizado para verificar sua integridade.
-
-O QR privado somente pode ser solicitado pelo Cliente proprietário do Ticket.
-
----
-
-# Compartilhamento Público
-
-Cada Ticket também possui um:
-
-```text
 sharedToken
+→ visualização pública
 ```
 
-Ele permite criar um endereço público:
-
-```text
-/ingresso/:sharedToken
-```
-
-Esse endereço pode ser aberto sem autenticação.
-
-A página compartilhada apresenta informações permitidas sobre o ingresso e o evento.
-
-Ela não retorna:
-
-- QR Code privado;
-- hash do QR;
-- token assinado;
-- `orderId`;
-- informações pessoais do comprador.
-
-O `sharedToken` não funciona como credencial de entrada.
+O compartilhamento público não expõe a credencial utilizada pela Portaria.
 
 ---
 
-# Portal da Portaria
+# Portaria
 
-A Etapa 9 implementou a interface utilizada pelo perfil:
+Área principal:
+
+```text
+/portaria
+```
+
+O perfil:
 
 ```text
 CHECKIN
 ```
 
-para controle de acesso aos eventos.
+pode validar ingressos através de:
 
-A Portaria possui duas formas de fornecer o QR para validação:
+- leitura pela câmera;
+- inserção manual do token.
 
-```text
-Leitura pela câmera
-```
-
-ou:
-
-```text
-Inserção manual
-```
-
-As duas utilizam o mesmo endpoint e as mesmas regras de segurança no Back-End.
-
----
-
-# Leitura de QR Code pela Câmera
-
-O Front-End utiliza:
+A leitura pela câmera utiliza:
 
 ```text
 @zxing/browser
 ```
 
-para leitura do QR Code através da câmera do dispositivo.
-
-O fluxo é:
-
-```text
-Ativar câmera
-↓
-Autorizar acesso
-↓
-Apontar para QR Code
-↓
-Código identificado
-↓
-Token capturado
-↓
-Câmera interrompida
-↓
-API de check-in
-↓
-Resultado
-```
-
-A interface também trata:
-
-- ausência de câmera;
-- falha de acesso;
-- permissão recusada;
-- ativação e desativação manual.
-
----
-
-# Validação de Ingressos
-
-A validação utiliza:
-
-```text
-POST /checkin/validate
-```
-
-A rota exige:
-
-```text
-authenticate
-authorize("CHECKIN")
-```
-
-O Back-End valida:
-
-- assinatura do token;
-- estrutura do payload;
-- existência do Ticket;
-- relação com o pedido;
-- hash do QR;
-- status atual do Ticket.
-
-O Front-End apenas captura o token e apresenta o resultado da API.
-
----
-
-# Uso Único do Ingresso
-
-Um Ticket válido começa com:
-
-```text
-VALID
-```
-
-Após uma entrada autorizada:
-
-```text
-VALID
-↓
-USED
-```
-
-O mesmo QR apresentado novamente não autoriza uma segunda entrada.
-
-A Portaria apresenta:
-
-```text
-JÁ UTILIZADO
-```
-
-para esse cenário.
-
-Também são tratados:
+Estados tratados:
 
 ```text
 VÁLIDO
-INVÁLIDO
-CANCELADO
 JÁ UTILIZADO
+CANCELADO
+INVÁLIDO
 ```
 
----
-
-# Segurança do QR Code
-
-O QR Code e o link público de compartilhamento possuem responsabilidades diferentes.
-
-```text
-QR privado
-↓
-credencial de entrada
-```
-
-```text
-sharedToken
-↓
-visualização pública
-```
-
-Durante os testes foi confirmado que utilizar o endereço público `/ingresso/:sharedToken` na Portaria resulta em QR inválido.
-
-Isso impede que o simples compartilhamento da página pública forneça uma credencial válida para entrada no evento.
-
----
-
-# Reservas e Concorrência
-
-Modalidades `QUANTITY` não utilizam bloqueio temporário.
-
-O estoque é validado atomicamente na finalização.
-
-Modalidades `SEAT` utilizam bloqueio temporário de assentos durante o checkout.
-
-Se a sessão expirar:
-
-- a sessão passa para `EXPIRED`;
-- assentos ainda não vendidos são liberados.
-
-Tickets já efetivamente vendidos não têm seus assentos liberados.
-
----
-
-# Painel de Métricas do Organizador
-
-A Etapa 10 adicionou recursos analíticos ao módulo do Organizador.
-
-As métricas utilizam os Tickets associados aos eventos publicados.
-
-São considerados Tickets com status:
+Após uma validação bem-sucedida:
 
 ```text
 VALID
+↓
 USED
 ```
 
-Entre as informações calculadas estão:
-
-```text
-soldTickets
-revenueInCents
-occupancyPercentage
-remainingCapacity
-byCategory
-bySector
-```
+O mesmo ingresso não pode autorizar uma segunda entrada.
 
 ---
 
-# Visão Geral
+# Métricas do Organizador
 
-Na rota:
+O Organizador possui visão geral e métricas individuais por evento.
 
-```text
-/organizador
-```
+Entre os indicadores disponíveis estão:
 
-o Organizador possui uma visão consolidada dos eventos publicados.
+- receita;
+- ingressos vendidos;
+- ticket médio;
+- ocupação;
+- capacidade disponível;
+- vendas por categoria;
+- vendas por setor.
 
-São apresentados KPIs como:
+O painel geral possui filtros por:
 
-```text
-Receita
-Ingressos vendidos
-Ticket médio
-Ocupação geral
-Eventos publicados
-```
-
-Esses valores são recalculados conforme os filtros do dashboard.
-
----
-
-# Receita
-
-A receita utiliza o valor registrado individualmente em cada Ticket:
-
-```text
-unitPriceInCents
-```
-
-Isso permite preservar corretamente o valor da venda mesmo quando diferentes lotes possuem preços diferentes.
-
-Conceitualmente:
-
-```text
-Ticket 1 → R$ 200
-Ticket 2 → R$ 100
-Ticket 3 → R$ 150
-             ↓
-Receita → R$ 450
-```
-
----
-
-# Ticket Médio
-
-O ticket médio utiliza:
-
-```text
-receita total
--------------
-Tickets vendidos
-```
-
-A métrica existe tanto no dashboard geral quanto no painel individual do evento.
-
----
-
-# Ocupação
-
-A ocupação utiliza:
-
-```text
-Tickets vendidos
------------------ × 100
-capacidade
-```
-
-Na visão consolidada, são utilizadas a soma das vendas e a soma das capacidades dos eventos analisados.
-
----
-
-# Vendas por Categoria de Evento
-
-O painel geral possui gráfico que agrupa os resultados pela categoria do evento.
-
-Exemplos:
-
-```text
-SHOW
-CINEMA
-TEATRO
-WORKSHOP
-```
-
-Para cada categoria podem ser visualizados:
-
-```text
-quantidade de eventos
-Tickets vendidos
-participação nas vendas
-receita
-```
-
----
-
-# Filtros do Dashboard Geral
-
-A visão geral possui filtros próprios.
-
-São disponibilizados:
-
-```text
-Categoria
-Período
-Ano
-```
-
-## Categoria
-
-Exemplo:
-
-```text
-Todas as categorias
-Show
-Cinema
-Teatro
-```
-
-## Período
-
-Opções:
-
-```text
-Todos os períodos
-Próximos
-Realizados
-```
-
-## Ano
-
-Os anos são obtidos dinamicamente a partir dos eventos publicados.
-
-Exemplo:
-
-```text
-Todos os anos
-2026
-2027
-2028
-```
-
-Os três filtros podem ser combinados.
-
----
-
-# Limpar Filtros
-
-O dashboard possui a ação:
-
-```text
-Limpar filtros
-```
-
-Ela restaura:
-
-```text
-Categoria → Todas
-Período → Todos
-Ano → Todos
-```
-
-Quando não há filtro ativo, o botão permanece desabilitado.
-
----
-
-# Independência entre Filtros e Abas
-
-Os filtros analíticos e as abas de gerenciamento possuem responsabilidades diferentes.
-
-```text
-FILTROS DO DASHBOARD
-↓
-alteram métricas
-```
-
-```text
-PRÓXIMOS / REALIZADOS
-↓
-alteram listagem de eventos
-```
-
-Assim, uma análise específica não remove eventos da área de gerenciamento.
-
----
-
-# Dashboard Individual do Evento
-
-Eventos publicados possuem acesso à página de métricas individuais.
-
-Rota:
-
-```text
-/organizador/eventos/:eventId/metricas
-```
-
-A página apresenta uma visualização analítica específica para o evento.
-
-Entre os KPIs disponíveis estão:
-
-```text
-Receita
-Ingressos vendidos
-Ticket médio
-Ocupação
-Lugares disponíveis
-```
-
----
-
-# Ocupação do Evento
-
-O dashboard individual possui visualização do progresso de ocupação.
-
-Exemplo:
-
-```text
-Vendidos x capacidade
-
-████████████████░░░░
-
-80%
-```
-
-Também são apresentados:
-
-```text
-vendidos
-disponíveis
-capacidade total
-```
-
----
-
-# Vendas por Categoria de Ingresso
-
-Os Tickets podem ser agrupados pelas categorias de preço.
-
-Exemplos:
-
-```text
-INTEIRA
-MEIA
-MEIA SOCIAL
-```
-
-Para cada categoria são apresentados:
-
-```text
-quantidade vendida
-percentual das vendas
-receita
-```
-
-Exemplo:
-
-```text
-INTEIRA
-
-7 ingressos • 70%
-
-R$ 5.600,00
-```
-
----
-
-# Vendas por Setor
-
-O dashboard individual também agrupa as vendas pelos setores do evento.
-
-Exemplos:
-
-```text
-PISTA
-CAMAROTE
-PLATEIA
-```
-
-Para cada setor são apresentados:
-
-```text
-quantidade vendida
-percentual das vendas
-receita
-```
-
-Exemplo:
-
-```text
-CAMAROTE
-
-4 ingressos • 40%
-
-R$ 4.600,00
-```
-
----
-
-# Resumo Comercial
-
-O painel individual também apresenta uma visão resumida contendo:
-
-```text
-situação do evento
-capacidade total
-ingressos vendidos
-disponibilidade
-receita
-ticket médio
-ocupação
-```
-
-A situação é definida automaticamente conforme a data do evento:
-
-```text
-A realizar
-```
-
-ou:
-
-```text
-Realizado
-```
+- categoria;
+- período;
+- ano.
 
 ---
 
@@ -1217,30 +499,38 @@ Realizado
 - Express
 - Prisma ORM
 - JWT
-- bcrypt
+- bcryptjs
 - QRCode
 
 ## Banco de Dados
 
 - SQLite
 
+## APIs Externas
+
+- TMDb API
+- Ticketmaster Discovery API
+
 ## Ferramentas
 
 - Git
 - GitHub
 - npm
-- PowerShell
 - VS Code
 
 ---
 
-# Estrutura Geral
+# Estrutura do Projeto
 
 ```text
 EventosProject/
 │
 ├── backend/
 │   ├── prisma/
+│   │   ├── migrations/
+│   │   ├── schema.prisma
+│   │   └── seed.js
+│   │
 │   ├── src/
 │   │   ├── controllers/
 │   │   ├── lib/
@@ -1248,6 +538,8 @@ EventosProject/
 │   │   ├── routes/
 │   │   ├── services/
 │   │   └── server.js
+│   │
+│   ├── .env.example
 │   └── package.json
 │
 ├── frontend/
@@ -1259,6 +551,7 @@ EventosProject/
 │   │   ├── routes/
 │   │   ├── services/
 │   │   └── App.jsx
+│   │
 │   └── package.json
 │
 ├── documents/
@@ -1269,55 +562,154 @@ EventosProject/
 
 ---
 
-# Execução do Projeto
+# Instalação
 
-## Back-End
+## Pré-requisitos
+
+É necessário possuir:
+
+```text
+Node.js
+npm
+Git
+```
+
+---
+
+## 1. Clonar o Projeto
+
+```bash
+git clone <URL_DO_REPOSITORIO>
+cd EventosProject
+```
+
+---
+
+## 2. Configurar o Back-End
 
 Entre na pasta:
 
-```powershell
+```bash
 cd backend
 ```
 
 Instale as dependências:
 
-```powershell
+```bash
 npm install
 ```
 
-Execute:
+Crie:
 
-```powershell
+```text
+backend/.env
+```
+
+utilizando:
+
+```text
+backend/.env.example
+```
+
+como referência.
+
+Exemplo:
+
+```env
+DATABASE_URL="file:./dev.db"
+
+JWT_SECRET="seu_segredo_jwt"
+JWT_EXPIRES_IN="1d"
+
+QR_SECRET="seu_segredo_qr"
+
+TMDB_ACCESS_TOKEN="seu_token_tmdb"
+TICKETMASTER_API_KEY="sua_chave_ticketmaster"
+
+PORT=3000
+```
+
+As credenciais reais não devem ser versionadas.
+
+---
+
+## 3. Preparar o Banco de Dados
+
+Ainda dentro de:
+
+```text
+backend
+```
+
+gere o Prisma Client:
+
+```bash
+npx prisma generate
+```
+
+Aplique as migrations existentes:
+
+```bash
+npx prisma migrate deploy
+```
+
+Execute o seed:
+
+```bash
+npx prisma db seed
+```
+
+O seed pode ser executado novamente quando necessário.
+
+Ele recria apenas os eventos de demonstração controlados pelo próprio seed e preserva os demais eventos criados normalmente pela aplicação.
+
+---
+
+## 4. Iniciar o Back-End
+
+Dentro de:
+
+```text
+backend
+```
+
+execute:
+
+```bash
 npm run dev
 ```
 
-O servidor utiliza:
+Por padrão:
 
 ```text
 http://localhost:3000
 ```
 
-## Front-End
+---
 
-Em outro terminal:
+## 5. Configurar o Front-End
 
-```powershell
+Abra outro terminal a partir da raiz do projeto.
+
+Entre na pasta:
+
+```bash
 cd frontend
 ```
 
 Instale as dependências:
 
-```powershell
+```bash
 npm install
 ```
 
 Execute:
 
-```powershell
+```bash
 npm run dev
 ```
 
-O Vite disponibiliza a aplicação localmente, normalmente em:
+O Vite exibirá no terminal o endereço utilizado pelo Front-End, normalmente:
 
 ```text
 http://localhost:5173
@@ -1325,63 +717,265 @@ http://localhost:5173
 
 ---
 
-# Variáveis de Ambiente
+# Desenvolvimento do Banco
 
-O Back-End utiliza variáveis de ambiente para informações que não devem permanecer diretamente no código.
-
-Entre elas:
+Para criar uma nova migration durante o desenvolvimento, altere primeiro:
 
 ```text
-JWT_SECRET
-QR_SECRET
+backend/prisma/schema.prisma
 ```
 
-Segredos reais não devem ser enviados ao repositório.
+Depois, dentro de:
+
+```text
+backend
+```
+
+execute:
+
+```bash
+npx prisma migrate dev --name nome_da_migration
+```
+
+Após alterações no schema, também pode ser necessário executar:
+
+```bash
+npx prisma generate
+```
+
+Para apenas preparar um projeto recém-clonado, utilize as migrations já existentes:
+
+```bash
+npx prisma migrate deploy
+```
+
+Não é necessário criar uma nova migration durante a instalação normal.
 
 ---
 
-# Documentação do Desenvolvimento
+# Prisma Studio
 
-O histórico detalhado está disponível em:
+Para visualizar os dados:
+
+```bash
+cd backend
+npx prisma studio
+```
+
+---
+
+# Usuários de Demonstração
+
+| Perfil | E-mail | Senha |
+|---|---|---|
+| Organizador | `organizador@teste.com` | `123456` |
+| Cliente | `cliente1@teste.com` | `123456` |
+| Cliente | `cliente2@teste.com` | `123456` |
+| Portaria | `portaria@teste.com` | `123456` |
+
+Essas credenciais existem apenas para desenvolvimento e demonstração.
+
+---
+
+# Principais Endpoints
+
+## Autenticação
+
+```text
+POST /auth/register
+POST /auth/login
+GET  /auth/me
+```
+
+## Eventos Públicos
+
+```text
+GET /events
+GET /events/:eventId
+```
+
+## Organizador
+
+```text
+GET  /events/templates
+GET  /events/organizer/mine
+GET  /events/organizer/:eventId
+
+POST /events/organizer
+PUT  /events/organizer/:eventId
+
+POST /events/organizer/:eventId/publish
+```
+
+## Configuração
+
+```text
+GET /events/organizer/:eventId/configuration
+
+POST   /events/organizer/:eventId/sectors
+DELETE /events/organizer/:eventId/sectors/:sectorId
+
+POST   /events/organizer/:eventId/sectors/:sectorId/modalities
+DELETE /events/organizer/:eventId/modalities/:modalityId
+
+POST   /events/organizer/:eventId/modalities/:modalityId/categories
+DELETE /events/organizer/:eventId/modalities/:modalityId/categories/:categoryId
+
+POST   /events/organizer/:eventId/modalities/:modalityId/batches
+DELETE /events/organizer/:eventId/modalities/:modalityId/batches/:batchId
+
+POST   /events/organizer/:eventId/modalities/:modalityId/seats
+DELETE /events/organizer/:eventId/modalities/:modalityId/seats/:seatId
+```
+
+## APIs Externas
+
+```text
+GET /events/external/catalog/types
+GET /events/external/catalog
+
+GET /events/external/tmdb/search
+GET /events/external/tmdb/:externalId
+
+GET /events/external/ticketmaster/search
+GET /events/external/ticketmaster/:externalId
+```
+
+## Checkout
+
+```text
+POST /checkout
+POST /checkout/:checkoutId/complete
+```
+
+## Tickets
+
+```text
+GET /tickets/:ticketId/qr
+GET /tickets/shared/:sharedToken
+```
+
+## Portaria
+
+```text
+POST /checkin/validate
+```
+
+---
+
+# Segurança
+
+O projeto utiliza:
+
+- senhas armazenadas com hash;
+- autenticação JWT;
+- RBAC;
+- proteção de rotas;
+- validação de propriedade dos Tickets;
+- QR Code privado;
+- token público separado para compartilhamento;
+- validações de estoque no Back-End;
+- validações de configuração e publicação de eventos.
+
+Segredos e credenciais devem permanecer apenas no `.env`.
+
+---
+
+# Dados de Demonstração
+
+O seed cria quatro eventos principais para testar diferentes cenários:
+
+- teatro com lugares marcados;
+- show com setores e diferentes modalidades;
+- evento literário com venda por quantidade;
+- cinema com lugares marcados.
+
+Também são criados:
+
+- usuários de demonstração;
+- categorias;
+- setores;
+- modalidades;
+- categorias de preço;
+- lotes;
+- preços;
+- assentos.
+
+O seed foi validado para ser executado repetidamente sem duplicar os eventos controlados por ele.
+
+---
+
+# Escopo desta Versão
+
+Esta versão contempla o fluxo principal:
+
+```text
+Autenticação
+↓
+Descoberta ou criação de evento
+↓
+Configuração
+↓
+Publicação
+↓
+Catálogo público
+↓
+Seleção de ingressos
+↓
+Checkout
+↓
+Pagamento simulado
+↓
+Ticket
+↓
+QR Code
+↓
+Check-in
+↓
+Métricas
+```
+
+Algumas funcionalidades que fizeram parte do planejamento inicial não integram a entrega final desta versão:
+
+- cancelamento e devolução como fluxo completo;
+- integração real com gateway de pagamento;
+- Docker;
+- suíte de testes automatizados;
+- deploy em produção.
+
+O pagamento permanece simulado.
+
+O objetivo desta versão é demonstrar de ponta a ponta os principais fluxos de uma plataforma de gerenciamento e venda de ingressos.
+
+---
+
+# Documentação
+
+O README apresenta apenas a visão geral necessária para instalar, executar e compreender o projeto.
+
+O histórico detalhado das etapas, decisões, mudanças de escopo, problemas encontrados e correções está em:
 
 ```text
 documents/etapas_desenvolvimento.md
 ```
-
-O documento registra:
-
-- implementações;
-- regras de negócio;
-- decisões arquiteturais;
-- migrations;
-- testes;
-- problemas encontrados;
-- correções;
-- mudanças de escopo;
-- decisões manuais;
-- utilização de Inteligência Artificial.
 
 ---
 
 # Uso de Inteligência Artificial
 
-Ferramentas de Inteligência Artificial são utilizadas como apoio durante o desenvolvimento para:
+Ferramentas de Inteligência Artificial foram utilizadas como apoio durante o desenvolvimento para:
 
 - planejamento;
-- geração de código;
-- revisão de código;
+- geração e revisão de código;
 - análise de erros;
 - modelagem de dados;
-- estruturação de componentes;
+- integração de APIs;
 - documentação;
-- criação de cenários de teste;
-- investigação de problemas técnicos.
+- criação de cenários de teste.
 
-As decisões de produto e regras de negócio são revisadas durante o desenvolvimento.
+As decisões de produto e as implementações foram revisadas e testadas durante o desenvolvimento.
 
-As implementações são executadas e testadas manualmente antes de serem incorporadas ao projeto.
-
-O detalhamento do uso de IA em cada etapa está registrado em:
+O detalhamento está registrado em:
 
 ```text
 documents/etapas_desenvolvimento.md
@@ -1389,24 +983,32 @@ documents/etapas_desenvolvimento.md
 
 ---
 
-# Próxima Etapa
+# Etapa Final
 
-## Etapa 11 — Cancelamento & Devolução ao Estoque
+A Etapa 12 é a última etapa desta versão.
 
-Com os fluxos principais de criação de eventos, compra, emissão de ingressos, QR Code, Portaria, busca, filtros e métricas implementados, a próxima etapa será dedicada ao tratamento de cancelamentos.
+Situação atual:
 
-A Etapa 11 deverá trabalhar principalmente com:
+```text
+Revisão do seed.js
+✅ concluída
 
-- cancelamento de ingressos;
-- alteração do status do Ticket;
-- regras para impedir utilização após cancelamento;
-- devolução de disponibilidade para modalidades `QUANTITY`;
-- devolução de assentos para modalidades `SEAT`;
-- consistência entre Ticket, pedido, estoque e assento;
-- atualização da visualização do Cliente após o cancelamento;
-- impacto do cancelamento nas métricas do Organizador.
+Revisão da instalação e banco
+✅ concluída
 
-As regras exatas de cancelamento e devolução ao estoque serão definidas antes da implementação para preservar a consistência das estruturas de venda já existentes.
+Teste completo de ponta a ponta
+✅ concluída
+
+## Status
+
+**Projeto concluído.**
+
+As funcionalidades planejadas para esta versão foram implementadas e os principais fluxos foram validados durante o desenvolvimento.
+
+O histórico detalhado do desenvolvimento está disponível em:
+
+```text
+documents/etapas_desenvolvimento.md
 
 ---
 

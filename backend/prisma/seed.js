@@ -89,22 +89,6 @@ async function createBatch(
 // ======================================================
 // CRIAÇÃO DE ASSENTOS
 // ======================================================
-//
-// Os assentos são criados de acordo com a capacidade
-// da modalidade.
-//
-// Exemplo:
-//
-// capacity = 120
-//
-// A1
-// A2
-// ...
-// A120
-//
-// Em eventos futuros essa capacidade será definida
-// pelo ORGANIZER.
-// ======================================================
 
 async function createSeats(
     eventSectorModalityId,
@@ -144,15 +128,6 @@ async function createSeats(
 // ======================================================
 // LIMPEZA DE CHECKOUTS DOS EVENTOS DE DEMONSTRAÇÃO
 // ======================================================
-//
-// Como agora os testes de checkout podem gerar sessões
-// vinculadas aos eventos seed, precisamos removê-las
-// antes de recriar esses eventos.
-//
-// Isso evita conflito de chave estrangeira.
-//
-// Não remove checkouts de outros eventos.
-// ======================================================
 
 async function deleteDemoCheckoutSessions(
     demoEventIds
@@ -176,15 +151,21 @@ async function deleteDemoCheckoutSessions(
                     },
                 },
             },
+
             select: {
                 id: true,
             },
         });
 
     const sessionIds =
-        sessions.map((session) => session.id);
+        sessions.map(
+            (session) =>
+                session.id
+        );
 
-    if (sessionIds.length === 0) {
+    if (
+        sessionIds.length === 0
+    ) {
         return;
     }
 
@@ -198,12 +179,98 @@ async function deleteDemoCheckoutSessions(
 }
 
 // ======================================================
+// LIMPEZA DE INGRESSOS/PEDIDOS DOS EVENTOS DE DEMONSTRAÇÃO
+// ======================================================
+//
+// Ingressos apontam para TicketBatchPrice e Seat.
+// Essas relações não usam onDelete: Cascade.
+//
+// Portanto, antes de excluir os eventos seed, precisamos
+// remover os ingressos vinculados a eles.
+//
+// Depois disso, pedidos que ficarem sem ingressos também
+// são removidos. Pedidos que ainda possuírem ingressos de
+// outros eventos são preservados.
+// ======================================================
+
+async function deleteDemoTicketsAndEmptyOrders(
+    demoEventIds
+) {
+    const tickets =
+        await prisma.ticket.findMany({
+            where: {
+                ticketBatchPrice: {
+                    ticketBatch: {
+                        eventSectorModality: {
+                            eventSector: {
+                                eventId: {
+                                    in: demoEventIds,
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+
+            select: {
+                id: true,
+                orderId: true,
+            },
+        });
+
+    if (
+        tickets.length === 0
+    ) {
+        return;
+    }
+
+    const ticketIds =
+        tickets.map(
+            (ticket) =>
+                ticket.id
+        );
+
+    const affectedOrderIds =
+        [
+            ...new Set(
+                tickets.map(
+                    (ticket) =>
+                        ticket.orderId
+                )
+            ),
+        ];
+
+    await prisma.ticket.deleteMany({
+        where: {
+            id: {
+                in: ticketIds,
+            },
+        },
+    });
+
+    await prisma.order.deleteMany({
+        where: {
+            id: {
+                in: affectedOrderIds,
+            },
+
+            tickets: {
+                none: {},
+            },
+        },
+    });
+}
+
+// ======================================================
 // SEED
 // ======================================================
 
 async function main() {
     const passwordHash =
-        await bcrypt.hash("123456", 10);
+        await bcrypt.hash(
+            "123456",
+            10
+        );
 
     // ==================================================
     // EVENTOS CONTROLADOS PELO SEED
@@ -216,13 +283,14 @@ async function main() {
         "seed-event-movie",
     ];
 
-    // Remove sessões de checkout relacionadas aos
-    // eventos seed antes de recriá-los.
     await deleteDemoCheckoutSessions(
         demoEventIds
     );
 
-    // Remove somente os eventos de demonstração.
+    await deleteDemoTicketsAndEmptyOrders(
+        demoEventIds
+    );
+
     await prisma.event.deleteMany({
         where: {
             id: {
@@ -241,14 +309,23 @@ async function main() {
                 email:
                     "organizador@teste.com",
             },
-            update: {},
+
+            update: {
+                name:
+                    "Organizador Teste",
+                passwordHash,
+                role:
+                    "ORGANIZER",
+            },
+
             create: {
                 name:
                     "Organizador Teste",
                 email:
                     "organizador@teste.com",
                 passwordHash,
-                role: "ORGANIZER",
+                role:
+                    "ORGANIZER",
             },
         });
 
@@ -257,14 +334,23 @@ async function main() {
             email:
                 "cliente1@teste.com",
         },
-        update: {},
+
+        update: {
+            name:
+                "Cliente Teste 1",
+            passwordHash,
+            role:
+                "CLIENT",
+        },
+
         create: {
             name:
                 "Cliente Teste 1",
             email:
                 "cliente1@teste.com",
             passwordHash,
-            role: "CLIENT",
+            role:
+                "CLIENT",
         },
     });
 
@@ -273,14 +359,23 @@ async function main() {
             email:
                 "cliente2@teste.com",
         },
-        update: {},
+
+        update: {
+            name:
+                "Cliente Teste 2",
+            passwordHash,
+            role:
+                "CLIENT",
+        },
+
         create: {
             name:
                 "Cliente Teste 2",
             email:
                 "cliente2@teste.com",
             passwordHash,
-            role: "CLIENT",
+            role:
+                "CLIENT",
         },
     });
 
@@ -289,14 +384,23 @@ async function main() {
             email:
                 "portaria@teste.com",
         },
-        update: {},
+
+        update: {
+            name:
+                "Portaria Teste",
+            passwordHash,
+            role:
+                "CHECKIN",
+        },
+
         create: {
             name:
                 "Portaria Teste",
             email:
                 "portaria@teste.com",
             passwordHash,
-            role: "CHECKIN",
+            role:
+                "CHECKIN",
         },
     });
 
@@ -310,14 +414,19 @@ async function main() {
                 normalizedName:
                     "MEIA ENTRADA",
             },
+
             update: {
-                maxPercentage: 50,
+                maxPercentage:
+                    50,
             },
+
             create: {
-                name: "MEIA ENTRADA",
+                name:
+                    "MEIA ENTRADA",
                 normalizedName:
                     "MEIA ENTRADA",
-                maxPercentage: 50,
+                maxPercentage:
+                    50,
             },
         });
 
@@ -459,7 +568,8 @@ async function main() {
             prisma.priceCategoryTemplate,
             "INTEIRA",
             {
-                quotaGroupId: null,
+                quotaGroupId:
+                    null,
             }
         );
 
@@ -488,7 +598,8 @@ async function main() {
             prisma.priceCategoryTemplate,
             "VALOR ÚNICO",
             {
-                quotaGroupId: null,
+                quotaGroupId:
+                    null,
             }
         );
 
@@ -499,25 +610,44 @@ async function main() {
     const theaterEvent =
         await prisma.event.create({
             data: {
-                id: "seed-event-theater",
+                id:
+                    "seed-event-theater",
+
                 title:
                     "Filhos do Éden: Paraíso Perdido",
+
                 description:
                     "Peça teatral de fantasia épica baseada no universo de Filhos do Éden.",
-                source: "LOCAL",
-                capacity: 300,
+
+                source:
+                    "LOCAL",
+
+                capacity:
+                    300,
+
                 venueName:
                     "Teatro Via Sul",
-                city: "Fortaleza",
-                state: "CE",
-                country: "BR",
+
+                city:
+                    "Fortaleza",
+
+                state:
+                    "CE",
+
+                country:
+                    "BR",
+
                 dateTime:
                     new Date(
                         "2026-10-10T20:00:00"
                     ),
-                status: "PUBLISHED",
+
+                status:
+                    "PUBLISHED",
+
                 organizerId:
                     organizer.id,
+
                 categoryTemplateId:
                     categoryTheater.id,
             },
@@ -528,9 +658,18 @@ async function main() {
             data: {
                 eventId:
                     theaterEvent.id,
+
                 sectorTemplateId:
                     sectorPlateia.id,
-                capacity: 300,
+
+                capacity:
+                    300,
+
+                layoutRow:
+                    1,
+
+                layoutColumn:
+                    1,
             },
         });
 
@@ -541,9 +680,13 @@ async function main() {
                 data: {
                     eventSectorId:
                         theaterSector.id,
+
                     modalityTemplateId:
                         modalityNormal.id,
-                    capacity: 300,
+
+                    capacity:
+                        300,
+
                     occupancyMode:
                         "SEAT",
                 },
@@ -581,17 +724,20 @@ async function main() {
             {
                 categoryId:
                     theaterFull.id,
-                priceInCents: 12000,
+                priceInCents:
+                    12000,
             },
             {
                 categoryId:
                     theaterHalf.id,
-                priceInCents: 6000,
+                priceInCents:
+                    6000,
             },
             {
                 categoryId:
                     theaterSocial.id,
-                priceInCents: 7000,
+                priceInCents:
+                    7000,
             },
         ]
     );
@@ -605,17 +751,20 @@ async function main() {
             {
                 categoryId:
                     theaterFull.id,
-                priceInCents: 14000,
+                priceInCents:
+                    14000,
             },
             {
                 categoryId:
                     theaterHalf.id,
-                priceInCents: 7000,
+                priceInCents:
+                    7000,
             },
             {
                 categoryId:
                     theaterSocial.id,
-                priceInCents: 8000,
+                priceInCents:
+                    8000,
             },
         ]
     );
@@ -627,43 +776,66 @@ async function main() {
     const epicaEvent =
         await prisma.event.create({
             data: {
-                id: "seed-event-epica",
+                id:
+                    "seed-event-epica",
+
                 title:
                     "Epica - Live in Brazil",
+
                 description:
                     "Latin America Tour 2026 - A banda de metal sinfônico Epica chega ao Brasil para uma apresentação especial.",
-                source: "LOCAL",
-                capacity: 2000,
+
+                source:
+                    "LOCAL",
+
+                capacity:
+                    2000,
+
                 venueName:
                     "Arena Boraí",
-                city: "São Paulo",
-                state: "SP",
-                country: "BR",
+
+                city:
+                    "São Paulo",
+
+                state:
+                    "SP",
+
+                country:
+                    "BR",
+
                 dateTime:
                     new Date(
                         "2026-11-15T21:00:00"
                     ),
-                status: "PUBLISHED",
+
+                status:
+                    "PUBLISHED",
+
                 organizerId:
                     organizer.id,
+
                 categoryTemplateId:
                     categoryShow.id,
             },
         });
-
-    // ==================================================
-    // EPICA — PISTA
-    // QUANTITY
-    // ==================================================
 
     const epicaPista =
         await prisma.eventSector.create({
             data: {
                 eventId:
                     epicaEvent.id,
+
                 sectorTemplateId:
                     sectorPista.id,
-                capacity: 800,
+
+                capacity:
+                    800,
+
+                layoutRow:
+                    1,
+
+                layoutColumn:
+                    1,
             },
         });
 
@@ -674,9 +846,13 @@ async function main() {
                 data: {
                     eventSectorId:
                         epicaPista.id,
+
                     modalityTemplateId:
                         modalityNormal.id,
-                    capacity: 800,
+
+                    capacity:
+                        800,
+
                     occupancyMode:
                         "QUANTITY",
                 },
@@ -709,17 +885,20 @@ async function main() {
             {
                 categoryId:
                     pistaInteira.id,
-                priceInCents: 22000,
+                priceInCents:
+                    22000,
             },
             {
                 categoryId:
                     pistaMeia.id,
-                priceInCents: 11000,
+                priceInCents:
+                    11000,
             },
             {
                 categoryId:
                     pistaMeiaSocial.id,
-                priceInCents: 14000,
+                priceInCents:
+                    14000,
             },
         ]
     );
@@ -733,39 +912,43 @@ async function main() {
             {
                 categoryId:
                     pistaInteira.id,
-                priceInCents: 26000,
+                priceInCents:
+                    26000,
             },
             {
                 categoryId:
                     pistaMeia.id,
-                priceInCents: 13000,
+                priceInCents:
+                    13000,
             },
             {
                 categoryId:
                     pistaMeiaSocial.id,
-                priceInCents: 16000,
+                priceInCents:
+                    16000,
             },
         ]
     );
-
-    // ==================================================
-    // EPICA — CAMAROTE
-    // ==================================================
 
     const epicaCamarote =
         await prisma.eventSector.create({
             data: {
                 eventId:
                     epicaEvent.id,
+
                 sectorTemplateId:
                     sectorCamarote.id,
-                capacity: 200,
+
+                capacity:
+                    200,
+
+                layoutRow:
+                    2,
+
+                layoutColumn:
+                    1,
             },
         });
-
-    // --------------------------------------------------
-    // CAMAROTE NORMAL — 50
-    // --------------------------------------------------
 
     const camaroteNormal =
         await prisma
@@ -774,9 +957,13 @@ async function main() {
                 data: {
                     eventSectorId:
                         epicaCamarote.id,
+
                     modalityTemplateId:
                         modalityNormal.id,
-                    capacity: 50,
+
+                    capacity:
+                        50,
+
                     occupancyMode:
                         "SEAT",
                 },
@@ -814,24 +1001,23 @@ async function main() {
             {
                 categoryId:
                     camaroteNormalInteira.id,
-                priceInCents: 40000,
+                priceInCents:
+                    40000,
             },
             {
                 categoryId:
                     camaroteNormalMeia.id,
-                priceInCents: 20000,
+                priceInCents:
+                    20000,
             },
             {
                 categoryId:
                     camaroteNormalSocial.id,
-                priceInCents: 24000,
+                priceInCents:
+                    24000,
             },
         ]
     );
-
-    // --------------------------------------------------
-    // CAMAROTE OPEN BAR — 50
-    // --------------------------------------------------
 
     const camaroteOpenBar =
         await prisma
@@ -840,9 +1026,13 @@ async function main() {
                 data: {
                     eventSectorId:
                         epicaCamarote.id,
+
                     modalityTemplateId:
                         modalityOpenBar.id,
-                    capacity: 50,
+
+                    capacity:
+                        50,
+
                     occupancyMode:
                         "SEAT",
                 },
@@ -880,24 +1070,23 @@ async function main() {
             {
                 categoryId:
                     camaroteOpenBarInteira.id,
-                priceInCents: 50000,
+                priceInCents:
+                    50000,
             },
             {
                 categoryId:
                     camaroteOpenBarMeia.id,
-                priceInCents: 25000,
+                priceInCents:
+                    25000,
             },
             {
                 categoryId:
                     camaroteOpenBarSocial.id,
-                priceInCents: 29000,
+                priceInCents:
+                    29000,
             },
         ]
     );
-
-    // --------------------------------------------------
-    // CAMAROTE OPEN FOOD — 50
-    // --------------------------------------------------
 
     const camaroteOpenFood =
         await prisma
@@ -906,9 +1095,13 @@ async function main() {
                 data: {
                     eventSectorId:
                         epicaCamarote.id,
+
                     modalityTemplateId:
                         modalityOpenFood.id,
-                    capacity: 50,
+
+                    capacity:
+                        50,
+
                     occupancyMode:
                         "SEAT",
                 },
@@ -946,24 +1139,23 @@ async function main() {
             {
                 categoryId:
                     camaroteOpenFoodInteira.id,
-                priceInCents: 50000,
+                priceInCents:
+                    50000,
             },
             {
                 categoryId:
                     camaroteOpenFoodMeia.id,
-                priceInCents: 25000,
+                priceInCents:
+                    25000,
             },
             {
                 categoryId:
                     camaroteOpenFoodSocial.id,
-                priceInCents: 29000,
+                priceInCents:
+                    29000,
             },
         ]
     );
-
-    // --------------------------------------------------
-    // CAMAROTE OPEN BAR + FOOD — 50
-    // --------------------------------------------------
 
     const camaroteOpenBarFood =
         await prisma
@@ -972,9 +1164,13 @@ async function main() {
                 data: {
                     eventSectorId:
                         epicaCamarote.id,
+
                     modalityTemplateId:
                         modalityOpenBarFood.id,
-                    capacity: 50,
+
+                    capacity:
+                        50,
+
                     occupancyMode:
                         "SEAT",
                 },
@@ -1012,33 +1208,41 @@ async function main() {
             {
                 categoryId:
                     camaroteOpenBarFoodInteira.id,
-                priceInCents: 60000,
+                priceInCents:
+                    60000,
             },
             {
                 categoryId:
                     camaroteOpenBarFoodMeia.id,
-                priceInCents: 30000,
+                priceInCents:
+                    30000,
             },
             {
                 categoryId:
                     camaroteOpenBarFoodSocial.id,
-                priceInCents: 34000,
+                priceInCents:
+                    34000,
             },
         ]
     );
-
-    // ==================================================
-    // EPICA — CADEIRA SUPERIOR
-    // ==================================================
 
     const epicaSuperior =
         await prisma.eventSector.create({
             data: {
                 eventId:
                     epicaEvent.id,
+
                 sectorTemplateId:
                     sectorCadeiraSuperior.id,
-                capacity: 500,
+
+                capacity:
+                    500,
+
+                layoutRow:
+                    4,
+
+                layoutColumn:
+                    1,
             },
         });
 
@@ -1049,9 +1253,13 @@ async function main() {
                 data: {
                     eventSectorId:
                         epicaSuperior.id,
+
                     modalityTemplateId:
                         modalityNormal.id,
-                    capacity: 500,
+
+                    capacity:
+                        500,
+
                     occupancyMode:
                         "SEAT",
                 },
@@ -1089,17 +1297,20 @@ async function main() {
             {
                 categoryId:
                     superiorInteira.id,
-                priceInCents: 30000,
+                priceInCents:
+                    30000,
             },
             {
                 categoryId:
                     superiorMeia.id,
-                priceInCents: 15000,
+                priceInCents:
+                    15000,
             },
             {
                 categoryId:
                     superiorSocial.id,
-                priceInCents: 18000,
+                priceInCents:
+                    18000,
             },
         ]
     );
@@ -1113,33 +1324,41 @@ async function main() {
             {
                 categoryId:
                     superiorInteira.id,
-                priceInCents: 34000,
+                priceInCents:
+                    34000,
             },
             {
                 categoryId:
                     superiorMeia.id,
-                priceInCents: 17000,
+                priceInCents:
+                    17000,
             },
             {
                 categoryId:
                     superiorSocial.id,
-                priceInCents: 20000,
+                priceInCents:
+                    20000,
             },
         ]
     );
-
-    // ==================================================
-    // EPICA — CADEIRA INFERIOR
-    // ==================================================
 
     const epicaInferior =
         await prisma.eventSector.create({
             data: {
                 eventId:
                     epicaEvent.id,
+
                 sectorTemplateId:
                     sectorCadeiraInferior.id,
-                capacity: 500,
+
+                capacity:
+                    500,
+
+                layoutRow:
+                    3,
+
+                layoutColumn:
+                    1,
             },
         });
 
@@ -1150,9 +1369,13 @@ async function main() {
                 data: {
                     eventSectorId:
                         epicaInferior.id,
+
                     modalityTemplateId:
                         modalityNormal.id,
-                    capacity: 500,
+
+                    capacity:
+                        500,
+
                     occupancyMode:
                         "SEAT",
                 },
@@ -1190,17 +1413,20 @@ async function main() {
             {
                 categoryId:
                     inferiorInteira.id,
-                priceInCents: 36000,
+                priceInCents:
+                    36000,
             },
             {
                 categoryId:
                     inferiorMeia.id,
-                priceInCents: 18000,
+                priceInCents:
+                    18000,
             },
             {
                 categoryId:
                     inferiorSocial.id,
-                priceInCents: 21000,
+                priceInCents:
+                    21000,
             },
         ]
     );
@@ -1214,17 +1440,20 @@ async function main() {
             {
                 categoryId:
                     inferiorInteira.id,
-                priceInCents: 40000,
+                priceInCents:
+                    40000,
             },
             {
                 categoryId:
                     inferiorMeia.id,
-                priceInCents: 20000,
+                priceInCents:
+                    20000,
             },
             {
                 categoryId:
                     inferiorSocial.id,
-                priceInCents: 23000,
+                priceInCents:
+                    23000,
             },
         ]
     );
@@ -1236,25 +1465,44 @@ async function main() {
     const bookEvent =
         await prisma.event.create({
             data: {
-                id: "seed-event-book",
+                id:
+                    "seed-event-book",
+
                 title:
                     "Lançamento e Autógrafos - Enciclopédia Serial Killers: A Maldade de A a Z",
+
                 description:
                     "Sessão especial de lançamento do livro, com autógrafos e fotos com Harold Schechter.",
-                source: "LOCAL",
-                capacity: 250,
+
+                source:
+                    "LOCAL",
+
+                capacity:
+                    250,
+
                 venueName:
                     "Livraria Boraí",
-                city: "Brasília",
-                state: "DF",
-                country: "BR",
+
+                city:
+                    "Brasília",
+
+                state:
+                    "DF",
+
+                country:
+                    "BR",
+
                 dateTime:
                     new Date(
                         "2026-10-25T17:00:00"
                     ),
-                status: "PUBLISHED",
+
+                status:
+                    "PUBLISHED",
+
                 organizerId:
                     organizer.id,
+
                 categoryTemplateId:
                     categoryLiterature.id,
             },
@@ -1265,9 +1513,18 @@ async function main() {
             data: {
                 eventId:
                     bookEvent.id,
+
                 sectorTemplateId:
                     sectorEntradaGeral.id,
-                capacity: 250,
+
+                capacity:
+                    250,
+
+                layoutRow:
+                    1,
+
+                layoutColumn:
+                    1,
             },
         });
 
@@ -1278,9 +1535,13 @@ async function main() {
                 data: {
                     eventSectorId:
                         bookSector.id,
+
                     modalityTemplateId:
                         modalityAutografoLivro.id,
-                    capacity: 150,
+
+                    capacity:
+                        150,
+
                     occupancyMode:
                         "QUANTITY",
                 },
@@ -1301,7 +1562,8 @@ async function main() {
             {
                 categoryId:
                     autographBookPrice.id,
-                priceInCents: 18000,
+                priceInCents:
+                    18000,
             },
         ]
     );
@@ -1313,9 +1575,13 @@ async function main() {
                 data: {
                     eventSectorId:
                         bookSector.id,
+
                     modalityTemplateId:
                         modalityAutografoFotoLivro.id,
-                    capacity: 100,
+
+                    capacity:
+                        100,
+
                     occupancyMode:
                         "QUANTITY",
                 },
@@ -1336,7 +1602,8 @@ async function main() {
             {
                 categoryId:
                     autographPhotoPrice.id,
-                priceInCents: 25000,
+                priceInCents:
+                    25000,
             },
         ]
     );
@@ -1348,25 +1615,44 @@ async function main() {
     const movieEvent =
         await prisma.event.create({
             data: {
-                id: "seed-event-movie",
+                id:
+                    "seed-event-movie",
+
                 title:
                     "Amanhecer - Parte 1 | Relançamento",
+
                 description:
                     "Sessão especial de relançamento de Amanhecer - Parte 1.",
-                source: "LOCAL",
-                capacity: 120,
+
+                source:
+                    "LOCAL",
+
+                capacity:
+                    120,
+
                 venueName:
                     "Cinema Boraí",
-                city: "Fortaleza",
-                state: "CE",
-                country: "BR",
+
+                city:
+                    "Fortaleza",
+
+                state:
+                    "CE",
+
+                country:
+                    "BR",
+
                 dateTime:
                     new Date(
                         "2026-11-20T19:30:00"
                     ),
-                status: "PUBLISHED",
+
+                status:
+                    "PUBLISHED",
+
                 organizerId:
                     organizer.id,
+
                 categoryTemplateId:
                     categoryCinema.id,
             },
@@ -1377,9 +1663,18 @@ async function main() {
             data: {
                 eventId:
                     movieEvent.id,
+
                 sectorTemplateId:
                     sectorSalaCinema.id,
-                capacity: 120,
+
+                capacity:
+                    120,
+
+                layoutRow:
+                    1,
+
+                layoutColumn:
+                    1,
             },
         });
 
@@ -1390,9 +1685,13 @@ async function main() {
                 data: {
                     eventSectorId:
                         movieSector.id,
+
                     modalityTemplateId:
                         modalityNormal.id,
-                    capacity: 120,
+
+                    capacity:
+                        120,
+
                     occupancyMode:
                         "SEAT",
                 },
@@ -1430,17 +1729,20 @@ async function main() {
             {
                 categoryId:
                     movieInteira.id,
-                priceInCents: 4000,
+                priceInCents:
+                    4000,
             },
             {
                 categoryId:
                     movieMeia.id,
-                priceInCents: 2000,
+                priceInCents:
+                    2000,
             },
             {
                 categoryId:
                     movieSocial.id,
-                priceInCents: 2400,
+                priceInCents:
+                    2400,
             },
         ]
     );
@@ -1458,13 +1760,23 @@ async function main() {
     );
 
     console.log("");
-    console.log("USUÁRIOS:");
-    console.log("- 1 Organizador");
-    console.log("- 2 Clientes");
-    console.log("- 1 Portaria");
+    console.log(
+        "USUÁRIOS:"
+    );
+    console.log(
+        "- 1 Organizador"
+    );
+    console.log(
+        "- 2 Clientes"
+    );
+    console.log(
+        "- 1 Portaria"
+    );
 
     console.log("");
-    console.log("EVENTOS:");
+    console.log(
+        "EVENTOS:"
+    );
     console.log(
         "- Filhos do Éden: Paraíso Perdido | TEATRO"
     );
